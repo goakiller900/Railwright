@@ -51,16 +51,19 @@ local function filter_array(settings)
     return #filters > 0 and filters or nil
 end
 
-local function chest_options(settings)
+local function chest_options(settings, chest_prototype)
     local options = {}
 
     if settings.chest_limit and settings.chest_limit > 0 then
         options.bar = settings.chest_limit
     end
 
-    local prototype = prototypes.entity[settings.chest_name]
-    if prototype and prototype.type == "logistic-container" then
-        local requests = Common.make_logistic_requests(settings.request_items, settings.request_from_buffers)
+    local logistic_mode = chest_prototype and chest_prototype.logistic_mode
+    if logistic_mode == "requester" or logistic_mode == "buffer" then
+        local requests = Common.make_logistic_requests(
+            settings.request_items,
+            logistic_mode == "requester" and settings.request_from_buffers or false
+        )
         if requests then options.request_filters = requests end
     end
 
@@ -119,7 +122,7 @@ local function add_vertical_belts(builder, settings, splitters, right_side)
     local loading = settings.station_type == "loading"
     local x = right_side and 5.5 or mirror_x(5.5)
 
-    for lane, splitter in ipairs(splitters) do
+    for _, splitter in ipairs(splitters) do
         local anchor_y = splitters[1].position.y
         local step = splitter.position.y >= anchor_y and 1 or -1
         local belt_direction
@@ -150,11 +153,14 @@ local function add_vertical_belts(builder, settings, splitters, right_side)
     end
 end
 
+local function inserter_stack_size(name)
+    if name == "bulk-inserter" then return 12 end
+    if name == "stack-inserter" then return 16 end
+    return 3
+end
+
 local function add_madzuri(builder, settings, chests, inserters, right_side)
     if not settings.madzuri or #chests == 0 or #inserters == 0 then return end
-
-    local prototype = prototypes.entity[settings.chest_name]
-    if prototype and prototype.type == "logistic-container" then return end
 
     local side_multiplier = settings.sides == "both" and settings.connect_both_green and 2 or 1
     local arithmetic_x = right_side and (settings.lamps and 2.5 or 1.5) or (settings.lamps and -5.5 or -4.5)
@@ -188,7 +194,10 @@ function Normal.generate(settings)
     local inserter_direction = loading and defines.direction.east or defines.direction.west
     local belt_directions = loading and loading_belt_directions or unloading_belt_directions
     local filters = filter_array(settings)
-    local chest_settings = chest_options(settings)
+    local chest_prototype = prototypes.entity[settings.chest_name]
+    local bot_chest = chest_prototype and chest_prototype.type == "logistic-container"
+    local madzuri_enabled = settings.madzuri and not bot_chest
+    local chest_settings = chest_options(settings, chest_prototype)
 
     local right_chests, left_chests = {}, {}
     local right_outer, left_outer = {}, {}
@@ -203,12 +212,12 @@ function Normal.generate(settings)
         end
 
         local outer_options = Builder.deep_copy(inserter_options)
-        if settings.madzuri then
+        if madzuri_enabled then
             outer_options.control_behavior = {
                 circuit_enabled = true,
                 circuit_condition = {
                     first_signal = { type = "virtual", name = "signal-everything" },
-                    constant = loading and 3 or 0,
+                    constant = loading and inserter_stack_size(settings.inserter_name) or 0,
                     comparator = loading and "<" or ">",
                 },
             }
@@ -217,8 +226,10 @@ function Normal.generate(settings)
         if use_right then
             builder:add(settings.inserter_name, 0.5, position.y, inserter_options)
             right_chests[#right_chests + 1] = builder:add(settings.chest_name, 1.5, position.y, chest_settings)
-            right_outer[#right_outer + 1] = builder:add(settings.inserter_name, 2.5, position.y, outer_options)
-            builder:add(settings.belt_name, 3.5, position.y, { direction = belt_directions[position.slot] })
+            if not bot_chest then
+                right_outer[#right_outer + 1] = builder:add(settings.inserter_name, 2.5, position.y, outer_options)
+                builder:add(settings.belt_name, 3.5, position.y, { direction = belt_directions[position.slot] })
+            end
         end
 
         if use_left then
@@ -229,32 +240,39 @@ function Normal.generate(settings)
             })
             left_chests[#left_chests + 1] = builder:add(settings.chest_name, mirror_x(1.5), position.y, chest_settings)
 
-            local left_outer_options = Builder.deep_copy(outer_options)
-            left_outer_options.direction = mirror_direction(inserter_direction)
-            left_outer[#left_outer + 1] = builder:add(settings.inserter_name, mirror_x(2.5), position.y, left_outer_options)
-            builder:add(settings.belt_name, mirror_x(3.5), position.y, {
-                direction = mirror_direction(belt_directions[position.slot]),
-            })
+            if not bot_chest then
+                local left_outer_options = Builder.deep_copy(outer_options)
+                left_outer_options.direction = mirror_direction(inserter_direction)
+                left_outer[#left_outer + 1] = builder:add(settings.inserter_name, mirror_x(2.5), position.y, left_outer_options)
+                builder:add(settings.belt_name, mirror_x(3.5), position.y, {
+                    direction = mirror_direction(belt_directions[position.slot]),
+                })
+            end
         end
     end
 
-    local cargo_start = settings.locomotives * 7 - 3
-    for wagon = 0, settings.cargo_wagons - 1 do
-        local y = cargo_start + wagon * 7 + 4.5
-        local direction = loading and defines.direction.west or defines.direction.east
+    if not bot_chest then
+        local cargo_start = settings.locomotives * 7 - 3
+        for wagon = 0, settings.cargo_wagons - 1 do
+            local y = cargo_start + wagon * 7 + 4.5
+            local splitter_direction = loading and defines.direction.west or defines.direction.east
 
-        if use_right then
-            right_splitters[#right_splitters + 1] = builder:add(settings.splitter_name, 4.5, y, { direction = direction })
+            if use_right then
+                right_splitters[#right_splitters + 1] = builder:add(settings.splitter_name, 4.5, y, {
+                    direction = splitter_direction,
+                })
+            end
+            if use_left then
+                left_splitters[#left_splitters + 1] = builder:add(settings.splitter_name, mirror_x(4.5), y, {
+                    direction = mirror_direction(splitter_direction),
+                })
+            end
         end
-        if use_left then
-            left_splitters[#left_splitters + 1] = builder:add(settings.splitter_name, mirror_x(4.5), y, {
-                direction = mirror_direction(direction),
-            })
-        end
+
+        add_vertical_belts(builder, settings, right_splitters, true)
+        add_vertical_belts(builder, settings, left_splitters, false)
     end
 
-    add_vertical_belts(builder, settings, right_splitters, true)
-    add_vertical_belts(builder, settings, left_splitters, false)
     add_poles_and_lamps(builder, settings, right_poles, left_poles)
 
     if settings.connect_green then
@@ -273,8 +291,10 @@ function Normal.generate(settings)
         end
     end
 
-    add_madzuri(builder, settings, right_chests, right_outer, true)
-    add_madzuri(builder, settings, left_chests, left_outer, false)
+    if madzuri_enabled then
+        add_madzuri(builder, settings, right_chests, right_outer, true)
+        add_madzuri(builder, settings, left_chests, left_outer, false)
+    end
 
     Common.add_refuel(builder, settings)
     Common.add_train(builder, settings, false)
