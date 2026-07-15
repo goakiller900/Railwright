@@ -58,7 +58,11 @@ local function chest_options(settings, chest_prototype)
         options.bar = settings.chest_limit
     end
 
-    local logistic_mode = chest_prototype and chest_prototype.logistic_mode
+    local logistic_mode
+    if chest_prototype and chest_prototype.type == "logistic-container" then
+        logistic_mode = chest_prototype.logistic_mode
+    end
+
     if logistic_mode == "requester" or logistic_mode == "buffer" then
         local requests = Common.make_logistic_requests(
             settings.request_items,
