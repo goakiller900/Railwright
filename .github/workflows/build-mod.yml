@@ -116,3 +116,13 @@ jobs:
               --title "Railwright ${{ steps.metadata.outputs.version }}" \
               --generate-notes
           fi
+
+      - name: Upload release to Factorio Mod Portal
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: TheBrutalX/factorio-mod-uploader-action@v2
+        with:
+          action: upload
+          mod-name: ${{ steps.metadata.outputs.mod_name }}
+          zip-file: ${{ steps.metadata.outputs.archive }}
+          factorio-api-key: ${{ secrets.FACTORIO_API_KEY }}
+          skip-update-details: true
