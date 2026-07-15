@@ -11,9 +11,9 @@ Railwright is an in-game train station blueprint generator for Factorio 2.1.
 
 The project is a modern successor inspired by BurnySc2's original **Train Station Blueprint Creator** (`BurnysTSBC`) and the later web-based Train Station Blueprint Creator. Railwright is a new implementation designed around the current Factorio runtime API and the prototypes that are actually available in the player's mod set.
 
-## Current status — 0.2.2
+## Current status — 0.2.3
 
-Railwright 0.2.2 modernises the in-game launcher by moving it from the legacy top GUI into Factorio's native shortcut bar while retaining the station-generator foundation introduced in 0.2.1.
+Railwright 0.2.3 is a packaging hotfix for the 0.2.2 shortcut-bar release. It keeps the native Factorio shortcut launcher while fixing the Mod Portal thumbnail package and adding stricter PNG validation to the release pipeline.
 
 ### Station types
 
@@ -83,14 +83,14 @@ railwright
 or with the version suffix:
 
 ```text
-railwright_0.2.2
+railwright_0.2.3
 ```
 
 Start Factorio 2.1 and enable **Railwright** in the mod manager.
 
 ## Automatic builds and releases
 
-GitHub Actions validates the Lua syntax and packages the mod on every branch push, pull request, and manual workflow run. Development ZIPs are available directly from the workflow run as artifacts.
+GitHub Actions validates the Lua syntax, required PNG artwork, and packaged mod on every branch push, pull request, and manual workflow run. Development ZIPs are available directly from the workflow run as artifacts.
 
 The version is read from `info.json`, and the resulting Factorio-compatible archive is built as:
 
@@ -120,10 +120,16 @@ For local packaging, run:
 python tools/package_mod.py
 ```
 
+To validate the release artwork locally:
+
+```text
+python tools/validate_png.py thumbnail.png graphics/railwright-shortcut-x56.png
+```
+
 To preview the GitHub release notes generated from a changelog entry:
 
 ```text
-python tools/release_notes.py 0.2.2
+python tools/release_notes.py 0.2.3
 ```
 
 ## Usage
@@ -162,6 +168,7 @@ scripts/generator_fluid.lua          Fluid loading/unloading generation
 scripts/generator_stacker.lua        Vertical and diagonal stacker generation
 tools/package_mod.py                 Local/CI Factorio ZIP packager
 tools/release_notes.py               Changelog-to-GitHub release note generator
+tools/validate_png.py                PNG structure and release-art validation
 docs/RELEASING.md                    Release process and safety rules
 .github/workflows/build-mod.yml      Validation, packaging, releases, and portal uploads
 ```
