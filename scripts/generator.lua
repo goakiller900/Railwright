@@ -2,6 +2,7 @@ local Common = require("scripts.generator_common")
 local Fluid = require("scripts.generator_fluid")
 local Normal = require("scripts.generator_normal")
 local Stacker = require("scripts.generator_stacker")
+local NativeStacker = require("scripts.generator_stacker_native")
 
 local Generator = {}
 
@@ -158,7 +159,10 @@ end
 function Generator.create_entities(settings)
     if Common.is_item_station(settings) then return Normal.generate(settings) end
     if Common.is_fluid_station(settings) then return Fluid.generate(settings) end
-    if settings.station_type == "stacker" then return Stacker.generate(settings) end
+    if settings.station_type == "stacker" then
+        if settings.stacker_diagonal then return Stacker.generate(settings) end
+        return NativeStacker.generate(settings)
+    end
     return {}
 end
 
