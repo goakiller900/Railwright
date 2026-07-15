@@ -120,8 +120,25 @@ local function validate_stacker(settings)
     if settings.stacker_lanes < 1 then return false, "A stacker needs at least one lane." end
     if settings.stacker_lanes > 100 then return false, "Stacker lanes must be 100 or fewer." end
 
-    if not prototypes.entity["legacy-straight-rail"] or not prototypes.entity["legacy-curved-rail"] then
-        return false, "This Factorio build does not provide the legacy rail prototypes required by the current stacker templates."
+    local modern_rails = {
+        "straight-rail",
+        "half-diagonal-rail",
+        "curved-rail-a",
+    }
+
+    for _, rail_name in ipairs(modern_rails) do
+        if not prototypes.entity[rail_name] then
+            return false, "This Factorio build does not provide the native rail prototype '" .. rail_name .. "'."
+        end
+    end
+
+    -- The parallel stacker is already fully native. The diagonal template is
+    -- kept on legacy rails only while its 2.1 transition geometry is rebuilt
+    -- on the modern-rails development branch.
+    if settings.stacker_diagonal then
+        if not prototypes.entity["legacy-straight-rail"] or not prototypes.entity["legacy-curved-rail"] then
+            return false, "The current diagonal stacker transition is still being migrated and needs compatibility rail prototypes."
+        end
     end
 
     return true
