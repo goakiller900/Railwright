@@ -25,6 +25,21 @@ jobs:
         with:
           python-version: "3.x"
 
+      - name: Install Lua syntax checker
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4
+
+      - name: Validate Lua syntax
+        shell: bash
+        run: |
+          find . -type f -name '*.lua' \
+            -not -path './.git/*' \
+            -print0 | while IFS= read -r -d '' file; do
+              echo "Checking ${file}"
+              luac5.4 -p "${file}"
+            done
+
       - name: Read mod metadata
         id: metadata
         shell: bash
