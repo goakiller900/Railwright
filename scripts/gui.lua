@@ -64,9 +64,11 @@ function Gui.open(player)
     spacer.drag_target = frame
 
     titlebar.add({
-        type = "button",
+        type = "sprite-button",
         name = Constants.gui.close_button,
-        caption = "✕",
+        sprite = "utility/close",
+        hovered_sprite = "utility/close_black",
+        clicked_sprite = "utility/close_black",
         style = "frame_action_button",
         tooltip = { "gui.close" },
     })
