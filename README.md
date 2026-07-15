@@ -58,6 +58,37 @@ railwright_0.1.0
 
 Start Factorio 2.1 and enable **Railwright** in the mod manager.
 
+## Automatic builds and releases
+
+GitHub Actions automatically packages the mod on every push to `main`, every pull request, and manual workflow run.
+
+The version is read directly from `info.json`, and the resulting Factorio-compatible archive is built as:
+
+```text
+dist/railwright_<version>.zip
+```
+
+The ZIP contains a single correctly named top-level mod directory:
+
+```text
+railwright_<version>/
+```
+
+Development builds are available from the workflow run as a GitHub Actions artifact.
+
+To publish a release:
+
+1. Update the version in `info.json`.
+2. Create and push a matching tag, for example `v0.1.0`.
+3. GitHub Actions verifies that the tag matches `info.json`.
+4. A GitHub Release is created automatically with `railwright_0.1.0.zip` attached.
+
+For local packaging, run:
+
+```text
+python tools/package_mod.py
+```
+
 ## Usage
 
 1. Load a game.
@@ -70,13 +101,15 @@ Start Factorio 2.1 and enable **Railwright** in the mod manager.
 ## Project structure
 
 ```text
-control.lua              Runtime event wiring
-info.json                 Factorio mod metadata
-locale/                   Localisation
-scripts/constants.lua     Shared identifiers
-scripts/state.lua         Persistent per-player settings
-scripts/gui.lua           In-game configuration interface
-scripts/generator.lua     Blueprint geometry and native blueprint creation
+control.lua                      Runtime event wiring
+info.json                         Factorio mod metadata
+locale/                           Localisation
+scripts/constants.lua             Shared identifiers
+scripts/state.lua                 Persistent per-player settings
+scripts/gui.lua                   In-game configuration interface
+scripts/generator.lua             Blueprint geometry and native blueprint creation
+tools/package_mod.py              Local/CI Factorio ZIP packager
+.github/workflows/build-mod.yml   Automatic packaging and releases
 ```
 
 ## Credits
