@@ -90,4 +90,4 @@ The web generator that preceded Railwright remains an important reference for st
 
 ## License
 
-MIT
+GNU General Public License v3.0. See `LICENSE`.
