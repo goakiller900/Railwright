@@ -20,9 +20,15 @@ script.on_configuration_changed(setup_all_players)
 
 script.on_event(defines.events.on_player_created, function(event)
     local player = game.get_player(event.player_index)
-    if player then
-        setup_player(player)
-    end
+    if player then setup_player(player) end
+end)
+
+script.on_event(defines.events.on_gui_selection_state_changed, function(event)
+    local element = event.element
+    if not element or not element.valid or element.name ~= Constants.gui.station_type then return end
+
+    local player = game.get_player(event.player_index)
+    if player then Gui.update_visibility(player) end
 end)
 
 script.on_event(defines.events.on_gui_click, function(event)
@@ -71,7 +77,5 @@ script.on_event(defines.events.on_gui_closed, function(event)
     if not player then return end
 
     local frame = player.gui.screen[Constants.gui.frame]
-    if frame and event.element == frame then
-        Gui.close(player)
-    end
+    if frame and event.element == frame then Gui.close(player) end
 end)
