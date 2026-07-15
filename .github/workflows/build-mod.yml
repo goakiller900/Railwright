@@ -53,6 +53,14 @@ jobs:
           echo "archive=${ARCHIVE}" >> "$GITHUB_OUTPUT"
           echo "package_name=${MOD_NAME}_${VERSION}" >> "$GITHUB_OUTPUT"
 
+      - name: Verify required mod assets
+        shell: bash
+        run: |
+          if [ ! -f "graphics/railwright-shortcut-x56.png" ]; then
+            echo "::error::Missing graphics/railwright-shortcut-x56.png. Add the 56px Railwright shortcut icon before merging this release."
+            exit 1
+          fi
+
       - name: Build Factorio mod ZIP
         run: python tools/package_mod.py
 
@@ -87,6 +95,8 @@ jobs:
                   raise SystemExit("Package does not contain info.json at the mod root")
               if f"{expected_root}changelog.txt" not in names:
                   raise SystemExit("Package does not contain changelog.txt at the mod root")
+              if f"{expected_root}graphics/railwright-shortcut-x56.png" not in names:
+                  raise SystemExit("Package does not contain the Railwright 56px shortcut icon")
 
           print(f"Verified {archive} with {len(names)} files")
           PY
