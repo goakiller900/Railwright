@@ -179,12 +179,16 @@ local function add_train(entities, settings)
     local index = 0
 
     for _ = 1, settings.locomotives do
-        add_entity(entities, "locomotive", -1, 1.5 + index * 7)
+        add_entity(entities, "locomotive", -1, 1.5 + index * 7, {
+            orientation = 0,
+        })
         index = index + 1
     end
 
     for _ = 1, settings.cargo_wagons do
-        add_entity(entities, "cargo-wagon", -1, 1.5 + index * 7)
+        add_entity(entities, "cargo-wagon", -1, 1.5 + index * 7, {
+            orientation = 0,
+        })
         index = index + 1
     end
 
