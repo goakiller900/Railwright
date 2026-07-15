@@ -192,7 +192,7 @@ local function dynamic_train_limit_values(settings, connected_storage_count, tot
 
     if fluid then
         train_capacity = settings.cargo_wagons * 25000
-        storage_capacity = connected_storage_count * settings.tank_columns * 25000
+        storage_capacity = connected_storage_count * 25000
     else
         local connected_fraction = total_storage_count > 0 and connected_storage_count / total_storage_count or 1
         train_capacity = settings.cargo_wagons * 40 * settings.train_limit_stack_size * connected_fraction
