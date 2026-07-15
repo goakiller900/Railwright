@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.2.2
+Date: 16. 07. 2026
+  Changes:
+    - Replaced the legacy top-of-screen Railwright button with a native Factorio shortcut-bar button.
+    - Railwright can now be shown, hidden, and reordered through Factorio's shortcut-bar configuration.
+    - Existing saves automatically remove the old top-bar launcher when upgrading to this version.
+  Graphics:
+    - Added support for a dedicated 56px Railwright shortcut icon.
+---------------------------------------------------------------------------------------------------
 Version: 0.2.1
 Date: 16. 07. 2026
   Major Features:
