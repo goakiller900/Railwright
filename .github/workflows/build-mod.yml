@@ -18,10 +18,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.x"
 
@@ -79,19 +79,25 @@ jobs:
           PY
 
       - name: Upload packaged mod artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: ${{ steps.metadata.outputs.package_name }}
           path: ${{ steps.metadata.outputs.archive }}
           if-no-files-found: error
+          archive: false
 
-      - name: Create GitHub Release and upload mod ZIP
+      - name: Create or update GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            "${{ steps.metadata.outputs.archive }}" \
-            --title "Railwright ${{ steps.metadata.outputs.version }}" \
-            --generate-notes
+          ARCHIVE="${{ steps.metadata.outputs.archive }}"
+
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$ARCHIVE" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              "$ARCHIVE" \
+              --title "Railwright ${{ steps.metadata.outputs.version }}" \
+              --generate-notes
+          fi
