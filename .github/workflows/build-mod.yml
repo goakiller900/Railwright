@@ -53,13 +53,11 @@ jobs:
           echo "archive=${ARCHIVE}" >> "$GITHUB_OUTPUT"
           echo "package_name=${MOD_NAME}_${VERSION}" >> "$GITHUB_OUTPUT"
 
-      - name: Verify required mod assets
-        shell: bash
+      - name: Validate required PNG assets
         run: |
-          if [ ! -f "graphics/railwright-shortcut-x56.png" ]; then
-            echo "::error::Missing graphics/railwright-shortcut-x56.png. Add the 56px Railwright shortcut icon before merging this release."
-            exit 1
-          fi
+          python tools/validate_png.py \
+            thumbnail.png \
+            graphics/railwright-shortcut-x56.png
 
       - name: Build Factorio mod ZIP
         run: python tools/package_mod.py
@@ -79,6 +77,8 @@ jobs:
           import zipfile
           from pathlib import Path
 
+          from tools.validate_png import PngValidationError, validate_png_bytes
+
           archive = Path("${{ steps.metadata.outputs.archive }}")
           expected_root = "${{ steps.metadata.outputs.package_name }}/"
 
@@ -95,8 +95,28 @@ jobs:
                   raise SystemExit("Package does not contain info.json at the mod root")
               if f"{expected_root}changelog.txt" not in names:
                   raise SystemExit("Package does not contain changelog.txt at the mod root")
-              if f"{expected_root}graphics/railwright-shortcut-x56.png" not in names:
+
+              thumbnail = f"{expected_root}thumbnail.png"
+              shortcut = f"{expected_root}graphics/railwright-shortcut-x56.png"
+
+              if thumbnail not in names:
+                  raise SystemExit("Package does not contain lowercase thumbnail.png at the mod root")
+              if shortcut not in names:
                   raise SystemExit("Package does not contain the Railwright 56px shortcut icon")
+
+              try:
+                  thumbnail_size = validate_png_bytes(zf.read(thumbnail), thumbnail)
+                  shortcut_size = validate_png_bytes(zf.read(shortcut), shortcut)
+              except PngValidationError as exc:
+                  raise SystemExit(str(exc)) from exc
+
+              if shortcut_size != (56, 56):
+                  raise SystemExit(
+                      f"Packaged shortcut icon must be exactly 56x56 pixels, got {shortcut_size[0]}x{shortcut_size[1]}"
+                  )
+
+              print(f"Validated packaged thumbnail.png: {thumbnail_size[0]}x{thumbnail_size[1]}")
+              print("Validated packaged shortcut icon: 56x56")
 
           print(f"Verified {archive} with {len(names)} files")
           PY
