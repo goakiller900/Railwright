@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.2.3
+Date: 16. 07. 2026
+  Bugfixes:
+    - Fixed the packaged Mod Portal thumbnail by replacing the invalid lowercase thumbnail.png with a valid PNG image.
+    - Prevented future releases from packaging invalid PNG artwork by validating PNG structure and CRC data in CI.
+  Changes:
+    - Release validation now checks both thumbnail.png and the 56px shortcut icon before packaging.
+    - The final ZIP is also revalidated to ensure the exact published PNG files are valid.
+---------------------------------------------------------------------------------------------------
 Version: 0.2.2
 Date: 16. 07. 2026
   Changes:
