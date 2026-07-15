@@ -141,26 +141,38 @@ function Gui.open(player)
         selected_index = side_index,
     })
 
-    add_setting_row(content, { "railwright.inserter" }, {
+    local inserter_button = add_setting_row(content, { "railwright.inserter" }, {
         type = "choose-elem-button",
         name = Constants.gui.inserter,
         elem_type = "entity",
-        elem_value = settings.inserter_name,
+        entity = settings.inserter_name,
     })
+    inserter_button.elem_filters = {
+        { filter = "type", type = "inserter" },
+    }
 
-    add_setting_row(content, { "railwright.chest" }, {
+    local chest_button = add_setting_row(content, { "railwright.chest" }, {
         type = "choose-elem-button",
         name = Constants.gui.chest,
         elem_type = "entity",
-        elem_value = settings.chest_name,
+        entity = settings.chest_name,
     })
+    chest_button.elem_filters = {
+        { filter = "type", type = "container" },
+        { filter = "type", type = "logistic-container", mode = "or" },
+        { filter = "type", type = "infinity-container", mode = "or" },
+        { filter = "type", type = "linked-container", mode = "or" },
+    }
 
-    add_setting_row(content, { "railwright.belt" }, {
+    local belt_button = add_setting_row(content, { "railwright.belt" }, {
         type = "choose-elem-button",
         name = Constants.gui.belt,
         elem_type = "entity",
-        elem_value = settings.belt_name,
+        entity = settings.belt_name,
     })
+    belt_button.elem_filters = {
+        { filter = "type", type = "transport-belt" },
+    }
 
     local generate = frame.add({
         type = "button",
