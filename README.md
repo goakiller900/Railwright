@@ -1,5 +1,10 @@
 # Railwright
 
+[![Build Railwright Mod](https://github.com/goakiller900/Railwright/actions/workflows/build-mod.yml/badge.svg)](https://github.com/goakiller900/Railwright/actions/workflows/build-mod.yml)
+[![GitHub release](https://img.shields.io/github/v/release/goakiller900/Railwright)](https://github.com/goakiller900/Railwright/releases)
+[![Factorio 2.1](https://img.shields.io/badge/Factorio-2.1-orange)](https://factorio.com/)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue)](LICENSE)
+
 **Build smarter stations.**
 
 Railwright is an in-game train station blueprint generator for Factorio 2.1.
@@ -56,17 +61,16 @@ Railwright 0.2.1 expands the first working in-game build into the full station-g
 
 The native entity and item pickers use the prototypes loaded by the running game. This lets Railwright expose compatible entities and items from the player's actual mod set instead of relying on a hard-coded vanilla item database.
 
-## Development status
+See [`changelog.txt`](changelog.txt) for version history and [`ROADMAP.md`](ROADMAP.md) for planned work.
 
-Railwright is still under active development. The 0.2.1 generators are the first in-game port of the behavior and station logic from the working web generator and need broad in-game testing across all combinations.
+## Known limitations
 
-Planned follow-up work includes:
+Railwright is still under active development and the generator has many possible setting combinations.
 
-- More detailed dynamic train-limit formula controls.
-- Improved capability detection for unusual modded entities.
-- A native preview before creating the blueprint.
-- Rebuilding stacker templates with modern Factorio 2.1 rail geometry instead of compatibility rail prototypes.
-- Additional GUI quality-of-life improvements.
+- Stacker templates currently use Factorio's compatibility/legacy rail prototypes while native 2.1 rail geometry is being developed.
+- The automatic dynamic train-limit behavior is available, but the web generator's advanced custom arithmetic formula controls are not exposed yet.
+- Unusual modded prototypes may still need additional capability detection even when they appear in a runtime picker.
+- Broad testing across overhaul mod packs is ongoing.
 
 ## Installation for development
 
@@ -86,33 +90,40 @@ Start Factorio 2.1 and enable **Railwright** in the mod manager.
 
 ## Automatic builds and releases
 
-GitHub Actions automatically validates the Lua syntax and packages the mod on every push to `main`, every pull request, and manual workflow run.
+GitHub Actions validates the Lua syntax and packages the mod on every branch push, pull request, and manual workflow run. Development ZIPs are available directly from the workflow run as artifacts.
 
-The version is read directly from `info.json`, and the resulting Factorio-compatible archive is built as:
+The version is read from `info.json`, and the resulting Factorio-compatible archive is built as:
 
 ```text
 dist/railwright_<version>.zip
 ```
 
-The ZIP contains a single correctly named top-level mod directory:
+The ZIP contains a single correctly named top-level mod directory and includes the Factorio-native `changelog.txt`.
 
-```text
-railwright_<version>/
-```
+Releases are intentionally restricted to `main`. To publish a new version:
 
-Development builds are available from the workflow run as a GitHub Actions artifact.
+1. Develop and test the change on a branch.
+2. Update the version in `info.json`.
+3. Add the matching version entry to `changelog.txt`.
+4. Test the branch artifact in Factorio.
+5. Merge the tested release into `main`.
 
-To publish a release:
+The workflow then automatically creates the `v<version>` tag, generates GitHub Release notes from `changelog.txt`, attaches the packaged ZIP, and uploads that same ZIP to the Factorio Mod Portal when the version is not already published.
 
-1. Update the version in `info.json`.
-2. Create and push a matching tag, for example `v0.2.1`.
-3. GitHub Actions verifies that the tag matches `info.json`.
-4. A GitHub Release is created automatically with `railwright_0.2.1.zip` attached.
+Existing release tags are never moved or overwritten.
+
+See [`docs/RELEASING.md`](docs/RELEASING.md) for the full release process.
 
 For local packaging, run:
 
 ```text
 python tools/package_mod.py
+```
+
+To preview the GitHub release notes generated from a changelog entry:
+
+```text
+python tools/release_notes.py 0.2.1
 ```
 
 ## Usage
@@ -124,11 +135,18 @@ python tools/package_mod.py
 5. Click **Create blueprint**.
 6. The generated blueprint is placed directly in your cursor.
 
+## Contributing
+
+Feature and fix work should happen on branches rather than directly on `main`. Blueprint-generation reports should include the Railwright version, Factorio version, relevant mods, station settings, and the generated blueprint when practical.
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the development workflow. GitHub issue templates are available for bugs and feature requests.
+
 ## Project structure
 
 ```text
 control.lua                         Runtime event wiring
 info.json                            Factorio mod metadata
+changelog.txt                        Factorio-native release changelog
 locale/                              Localisation
 scripts/constants.lua                Shared identifiers and option lists
 scripts/state.lua                    Persistent per-player settings and migrations
@@ -140,7 +158,9 @@ scripts/generator_normal.lua         Item loading/unloading generation
 scripts/generator_fluid.lua          Fluid loading/unloading generation
 scripts/generator_stacker.lua        Vertical and diagonal stacker generation
 tools/package_mod.py                 Local/CI Factorio ZIP packager
-.github/workflows/build-mod.yml      Automatic validation, packaging, and releases
+tools/release_notes.py               Changelog-to-GitHub release note generator
+docs/RELEASING.md                    Release process and safety rules
+.github/workflows/build-mod.yml      Validation, packaging, releases, and portal uploads
 ```
 
 ## Credits

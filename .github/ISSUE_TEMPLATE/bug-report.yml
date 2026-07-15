@@ -1,0 +1,99 @@
+name: Bug report
+description: Report a Railwright error or an incorrectly generated blueprint
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a Railwright problem. Blueprint-generation issues are much easier to reproduce with the exact station settings and mod context.
+
+  - type: input
+    id: railwright-version
+    attributes:
+      label: Railwright version
+      placeholder: 0.2.1
+    validations:
+      required: true
+
+  - type: input
+    id: factorio-version
+    attributes:
+      label: Factorio version
+      placeholder: 2.1.x
+    validations:
+      required: true
+
+  - type: dropdown
+    id: station-type
+    attributes:
+      label: Station type
+      options:
+        - Item loading station
+        - Item unloading station
+        - Fluid loading station
+        - Fluid unloading station
+        - Vertical stacker
+        - Diagonal stacker
+        - GUI / startup / other
+    validations:
+      required: true
+
+  - type: textarea
+    id: settings
+    attributes:
+      label: Railwright settings used
+      description: Include train layout, side selection, chosen entities, behavior settings, and anything else needed to reproduce the blueprint.
+      placeholder: |
+        1 locomotive per end, 4 wagons, double headed...
+        Both sides, bulk inserters, steel chests...
+    validations:
+      required: true
+
+  - type: textarea
+    id: mods
+    attributes:
+      label: Relevant mods
+      description: List overhaul mods or mods that add/replace the entities involved. Write "Vanilla" when no relevant mods are loaded.
+      placeholder: Vanilla / Space Age / Pyanodon / ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened?
+      description: Include the exact error message or describe what is wrong with the generated blueprint.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: blueprint
+    attributes:
+      label: Generated blueprint string
+      description: Paste the blueprint string when practical. For very large strings, attach it as a text file.
+      render: text
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or additional context
+      description: Screenshots are especially useful for rail geometry, stackers, and entity placement issues.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I tested with the newest Railwright build available to me.
+          required: true
+        - label: I checked that this issue has not already been reported.
+          required: true

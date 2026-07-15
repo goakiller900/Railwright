@@ -56,6 +56,14 @@ jobs:
       - name: Build Factorio mod ZIP
         run: python tools/package_mod.py
 
+      - name: Generate release notes from changelog
+        env:
+          VERSION: ${{ steps.metadata.outputs.version }}
+        shell: bash
+        run: |
+          python tools/release_notes.py "${VERSION}" > dist/release-notes.md
+          cat dist/release-notes.md
+
       - name: Verify package contents
         shell: bash
         run: |
@@ -77,6 +85,8 @@ jobs:
                   raise SystemExit(f"Every file must be inside {expected_root}")
               if f"{expected_root}info.json" not in names:
                   raise SystemExit("Package does not contain info.json at the mod root")
+              if f"{expected_root}changelog.txt" not in names:
+                  raise SystemExit("Package does not contain changelog.txt at the mod root")
 
           print(f"Verified {archive} with {len(names)} files")
           PY
@@ -128,17 +138,21 @@ jobs:
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
           ARCHIVE: ${{ steps.metadata.outputs.archive }}
           VERSION: ${{ steps.metadata.outputs.version }}
+          RELEASE_NOTES: dist/release-notes.md
         shell: bash
         run: |
           set -euo pipefail
 
           if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release edit "${RELEASE_TAG}" \
+              --title "Railwright ${VERSION}" \
+              --notes-file "${RELEASE_NOTES}"
             gh release upload "${RELEASE_TAG}" "${ARCHIVE}" --clobber
           else
             gh release create "${RELEASE_TAG}" \
               "${ARCHIVE}" \
               --title "Railwright ${VERSION}" \
-              --generate-notes
+              --notes-file "${RELEASE_NOTES}"
           fi
 
       - name: Check Factorio Mod Portal release

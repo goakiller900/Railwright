@@ -1,0 +1,51 @@
+name: Feature request
+description: Suggest a new Railwright feature, station option, or quality-of-life improvement
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the use case rather than only the implementation you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed feature
+      description: Describe how you would like Railwright to behave.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Item stations
+        - Fluid stations
+        - Stackers / rail geometry
+        - Circuit behavior
+        - Mod compatibility
+        - GUI / quality of life
+        - Release / project tooling
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples or references
+      description: Blueprint examples, screenshots, existing mods, or website-generator behavior are useful here.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I checked that a similar request is not already open.
+          required: true
