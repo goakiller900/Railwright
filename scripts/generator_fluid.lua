@@ -28,13 +28,27 @@ local function side_direction(settings, direction, tank)
     return tank and mirror_tank_direction(direction) or mirror_direction(direction)
 end
 
+local function serpentine_tanks(rows)
+    local ordered = {}
+
+    for row_index, row in ipairs(rows) do
+        if row_index % 2 == 1 then
+            for index = 1, #row do ordered[#ordered + 1] = row[index] end
+        else
+            for index = #row, 1, -1 do ordered[#ordered + 1] = row[index] end
+        end
+    end
+
+    return ordered
+end
+
 function Fluid.generate(settings)
     local builder = Builder.new()
     local train_stop = Common.add_tracks_signals_and_stop(builder, settings)
     local cargo_start = settings.locomotives * 7 - 3
     local loading = settings.station_type == "fluid-loading"
     local pump_direction = loading and defines.direction.west or defines.direction.east
-    local tanks = {}
+    local tank_rows_for_wiring = {}
 
     for wagon = 0, settings.cargo_wagons - 1 do
         local pump_y_top = cargo_start + wagon * 7 + 2
@@ -53,6 +67,8 @@ function Fluid.generate(settings)
         }
 
         for row_index, y in ipairs(tank_rows) do
+            local created_row = {}
+
             for column = 0, settings.tank_columns - 1 do
                 local direction
                 if row_index == 1 then
@@ -62,10 +78,12 @@ function Fluid.generate(settings)
                 end
 
                 local x = (column + 1) * 3 + 0.5
-                tanks[#tanks + 1] = builder:add(settings.storage_tank_name, side_x(settings, x), y, {
+                created_row[#created_row + 1] = builder:add(settings.storage_tank_name, side_x(settings, x), y, {
                     direction = side_direction(settings, direction, true),
                 })
             end
+
+            tank_rows_for_wiring[#tank_rows_for_wiring + 1] = created_row
         end
     end
 
@@ -90,6 +108,7 @@ function Fluid.generate(settings)
         end
     end
 
+    local tanks = serpentine_tanks(tank_rows_for_wiring)
     if settings.connect_green then builder:connect_chain(tanks, "green") end
     if settings.connect_red then builder:connect_chain(tanks, "red") end
 
