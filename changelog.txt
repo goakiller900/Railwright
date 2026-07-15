@@ -1,0 +1,31 @@
+---------------------------------------------------------------------------------------------------
+Version: 0.2.1
+Date: 16. 07. 2026
+  Major Features:
+    - Added item loading and unloading station generation with configurable station behavior.
+    - Added fluid loading and unloading stations.
+    - Added vertical and diagonal stacker generation.
+  Features:
+    - Added runtime prototype pickers for inserters, chests, belts, splitters, pumps, storage tanks, and pipes.
+    - Added inserter filters and logistic requester/buffer chest configuration.
+    - Added chest limits, belt-flow controls, Madzuri-style balancing, circuit wiring, refuelling, train limits, enable conditions, and lamps.
+    - Added configurable train length, double-headed trains, station sides, pump sides, tank columns, and stacker lanes.
+    - Added persistent per-player settings with migration-friendly defaults.
+  Changes:
+    - Split blueprint generation into dedicated item, fluid, stacker, common, and builder modules.
+    - Added automatic Lua syntax validation and Factorio-compatible ZIP packaging in GitHub Actions.
+    - Added automatic GitHub releases and Factorio Mod Portal uploads for releases created from main.
+  Compatibility:
+    - Uses the prototypes loaded by the running game so compatible entities and items from other mods can be selected natively.
+    - Current stacker templates use Factorio's compatibility rail prototypes while modern 2.1 rail geometry is developed.
+---------------------------------------------------------------------------------------------------
+Version: 0.1.0
+Date: 16. 07. 2026
+  Major Features:
+    - First working in-game release of Railwright for Factorio 2.1.
+  Features:
+    - Added the Railwright configuration window and top-bar button.
+    - Added item loading and unloading station generation.
+    - Added configurable locomotive and cargo-wagon counts, double-headed trains, station sides, and optional train placement.
+    - Added native prototype selectors for inserters, chests, and transport belts.
+    - Added direct blueprint creation in the player's cursor.
