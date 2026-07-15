@@ -1,0 +1,10 @@
+{
+  "name": "railwright",
+  "version": "0.1.0",
+  "title": "Railwright",
+  "author": "goakiller900",
+  "factorio_version": "2.1",
+  "dependencies": ["base >= 2.1.0"],
+  "homepage": "https://github.com/goakiller900/Railwright",
+  "description": "Build smarter train stations. An in-game train station blueprint generator for Factorio 2.1, inspired by BurnySc2's original Train Station Blueprint Creator."
+}
