@@ -11,9 +11,9 @@ Railwright is an in-game train station blueprint generator for Factorio 2.1.
 
 The project is a modern successor inspired by BurnySc2's original **Train Station Blueprint Creator** (`BurnysTSBC`) and the later web-based Train Station Blueprint Creator. Railwright is a new implementation designed around the current Factorio runtime API and the prototypes that are actually available in the player's mod set.
 
-## Current status — 0.2.1
+## Current status — 0.2.2
 
-Railwright 0.2.1 expands the first working in-game build into the full station-generator foundation.
+Railwright 0.2.2 modernises the in-game launcher by moving it from the legacy top GUI into Factorio's native shortcut bar while retaining the station-generator foundation introduced in 0.2.1.
 
 ### Station types
 
@@ -83,7 +83,7 @@ railwright
 or with the version suffix:
 
 ```text
-railwright_0.2.1
+railwright_0.2.2
 ```
 
 Start Factorio 2.1 and enable **Railwright** in the mod manager.
@@ -123,17 +123,18 @@ python tools/package_mod.py
 To preview the GitHub release notes generated from a changelog entry:
 
 ```text
-python tools/release_notes.py 0.2.1
+python tools/release_notes.py 0.2.2
 ```
 
 ## Usage
 
 1. Load a game.
-2. Click the blueprint icon added by Railwright to the top GUI.
-3. Select the station type.
-4. Configure the train, station-specific options, and behavior settings.
-5. Click **Create blueprint**.
-6. The generated blueprint is placed directly in your cursor.
+2. Add **Railwright** to the shortcut bar through Factorio's shortcut configuration if it is not already visible.
+3. Click the Railwright shortcut-bar icon.
+4. Select the station type.
+5. Configure the train, station-specific options, and behavior settings.
+6. Click **Create blueprint**.
+7. The generated blueprint is placed directly in your cursor.
 
 ## Contributing
 
@@ -145,8 +146,10 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the development workflow. GitHub is
 
 ```text
 control.lua                         Runtime event wiring
+data.lua                            Shortcut-bar prototype definitions
 info.json                            Factorio mod metadata
 changelog.txt                        Factorio-native release changelog
+graphics/                             In-game shortcut and UI graphics
 locale/                              Localisation
 scripts/constants.lua                Shared identifiers and option lists
 scripts/state.lua                    Persistent per-player settings and migrations
