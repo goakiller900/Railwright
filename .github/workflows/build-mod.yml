@@ -119,10 +119,52 @@ jobs:
 
       - name: Upload release to Factorio Mod Portal
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: TheBrutalX/factorio-mod-uploader-action@v2
-        with:
-          action: upload
-          mod-name: ${{ steps.metadata.outputs.mod_name }}
-          zip-file: ${{ steps.metadata.outputs.archive }}
-          factorio-api-key: ${{ secrets.FACTORIO_API_KEY }}
-          skip-update-details: true
+        env:
+          FACTORIO_API_KEY: ${{ secrets.FACTORIO_API_KEY }}
+          MOD_NAME: ${{ steps.metadata.outputs.mod_name }}
+          ARCHIVE: ${{ steps.metadata.outputs.archive }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "${FACTORIO_API_KEY:-}" ]; then
+            echo "::error::Repository secret FACTORIO_API_KEY is not configured."
+            exit 1
+          fi
+
+          echo "Requesting a Mod Portal upload URL for ${MOD_NAME}..."
+          INIT_RESPONSE="$(curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer ${FACTORIO_API_KEY}" \
+            --form "mod=${MOD_NAME}" \
+            "https://mods.factorio.com/api/v2/mods/releases/init_upload")"
+
+          UPLOAD_URL="$(INIT_RESPONSE="${INIT_RESPONSE}" python - <<'PY'
+          import json
+          import os
+
+          payload = json.loads(os.environ["INIT_RESPONSE"])
+          upload_url = payload.get("upload_url")
+          if not upload_url:
+              raise SystemExit(f"Mod Portal did not return an upload_url: {payload}")
+          print(upload_url)
+          PY
+          )"
+
+          echo "Uploading ${ARCHIVE} to the Factorio Mod Portal..."
+          UPLOAD_RESPONSE="$(curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer ${FACTORIO_API_KEY}" \
+            --form "file=@${ARCHIVE}" \
+            "${UPLOAD_URL}")"
+
+          UPLOAD_RESPONSE="${UPLOAD_RESPONSE}" python - <<'PY'
+          import json
+          import os
+
+          payload = json.loads(os.environ["UPLOAD_RESPONSE"])
+          if payload.get("success") is not True:
+              raise SystemExit(f"Mod Portal upload failed: {payload}")
+
+          print(payload.get("message") or "Factorio Mod Portal upload completed successfully.")
+          PY
