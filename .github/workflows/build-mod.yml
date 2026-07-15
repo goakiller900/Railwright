@@ -1,0 +1,97 @@
+name: Build Railwright Mod
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Read mod metadata
+        id: metadata
+        shell: bash
+        run: |
+          MOD_NAME="$(python -c 'import json; print(json.load(open("info.json", encoding="utf-8"))["name"])')"
+          VERSION="$(python -c 'import json; print(json.load(open("info.json", encoding="utf-8"))["version"])')"
+          ARCHIVE="dist/${MOD_NAME}_${VERSION}.zip"
+
+          echo "mod_name=${MOD_NAME}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "archive=${ARCHIVE}" >> "$GITHUB_OUTPUT"
+          echo "package_name=${MOD_NAME}_${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify release tag matches info.json
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          INFO_VERSION="${{ steps.metadata.outputs.version }}"
+
+          if [ "$TAG_VERSION" != "$INFO_VERSION" ]; then
+            echo "Tag version v${TAG_VERSION} does not match info.json version ${INFO_VERSION}."
+            exit 1
+          fi
+
+      - name: Build Factorio mod ZIP
+        run: python tools/package_mod.py
+
+      - name: Verify package contents
+        shell: bash
+        run: |
+          python - <<'PY'
+          import zipfile
+          from pathlib import Path
+
+          archive = Path("${{ steps.metadata.outputs.archive }}")
+          expected_root = "${{ steps.metadata.outputs.package_name }}/"
+
+          if not archive.is_file():
+              raise SystemExit(f"Missing package: {archive}")
+
+          with zipfile.ZipFile(archive) as zf:
+              names = zf.namelist()
+              if not names:
+                  raise SystemExit("Package is empty")
+              if any(not name.startswith(expected_root) for name in names):
+                  raise SystemExit(f"Every file must be inside {expected_root}")
+              if f"{expected_root}info.json" not in names:
+                  raise SystemExit("Package does not contain info.json at the mod root")
+
+          print(f"Verified {archive} with {len(names)} files")
+          PY
+
+      - name: Upload packaged mod artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.metadata.outputs.package_name }}
+          path: ${{ steps.metadata.outputs.archive }}
+          if-no-files-found: error
+
+      - name: Create GitHub Release and upload mod ZIP
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "${{ steps.metadata.outputs.archive }}" \
+            --title "Railwright ${{ steps.metadata.outputs.version }}" \
+            --generate-notes
