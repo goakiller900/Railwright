@@ -23,6 +23,10 @@ local function modulo(value, divisor)
     return ((value % divisor) + divisor) % divisor
 end
 
+local function normalize_stacker_type(stacker_type)
+    return stacker_type == "Right-Left" and "Right-Left" or "Left-Right"
+end
+
 local function make_unique_adder(builder)
     local seen = {}
 
@@ -183,38 +187,26 @@ local function build_native_parallel(settings)
     return builder.entities
 end
 
-local function transform_direction(direction, mirror_x, mirror_y)
-    if direction == nil then return nil end
-
-    local result = direction
-    if mirror_x then result = modulo(16 - result, 16) end
-    if mirror_y then result = modulo(8 - result, 16) end
-    return result
+local function transform_direction(direction, mirror_x)
+    if direction == nil or not mirror_x then return direction end
+    return modulo(16 - direction, 16)
 end
 
-local function transform_orientation(orientation, mirror_x, mirror_y)
-    if orientation == nil then return nil end
-
-    local result = orientation
-    if mirror_x then result = modulo(1 - result, 1) end
-    if mirror_y then result = modulo(0.5 - result, 1) end
-    return result
+local function transform_orientation(orientation, mirror_x)
+    if orientation == nil or not mirror_x then return orientation end
+    return modulo(1 - orientation, 1)
 end
 
 local function transform_native_layout(entities, settings)
-    -- Left-Right is the canonical supplied orientation. The other existing
-    -- Railwright options are exact reflections of that connected geometry.
-    local mirror_x = settings.stacker_type == "Right-Left"
-        or settings.stacker_type == "Right-Right"
-    local mirror_y = settings.stacker_type == "Left-Left"
-        or settings.stacker_type == "Right-Right"
+    -- Left-Right is the canonical supplied orientation. Right-Left remains the
+    -- existing horizontal reflection for now; its native curve prototype and
+    -- direction mapping will be verified only after Left-Right is proven.
+    local mirror_x = normalize_stacker_type(settings.stacker_type) == "Right-Left"
 
     for _, item in ipairs(entities) do
         if mirror_x then item.position.x = -item.position.x end
-        if mirror_y then item.position.y = -item.position.y end
-
-        item.direction = transform_direction(item.direction, mirror_x, mirror_y)
-        item.orientation = transform_orientation(item.orientation, mirror_x, mirror_y)
+        item.direction = transform_direction(item.direction, mirror_x)
+        item.orientation = transform_orientation(item.orientation, mirror_x)
     end
 
     return entities
@@ -290,7 +282,7 @@ local function generate_legacy_diagonal(settings)
     local double_factor = settings.double_headed and 2 or 1
     local diagonal_length = rounded((2.5 * (double_factor * settings.locomotives + settings.cargo_wagons)) / 2) * 2 + 1
     local lanes = settings.stacker_lanes
-    local stacker_type = settings.stacker_type == "Right-Left" and "Right-Left" or "Left-Right"
+    local stacker_type = normalize_stacker_type(settings.stacker_type)
 
     local front_curve
     local back_curve
