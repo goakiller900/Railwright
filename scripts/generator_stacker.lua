@@ -4,14 +4,14 @@ local Common = require("scripts.generator_common")
 local Stacker = {}
 
 -- Native Factorio 2.1 stacker geometry derived from a known-working in-game
--- 1-5 train / 7 holding-lane blueprint supplied by the project maintainer.
+-- 1-5 train / 8-lane blueprint supplied by the project maintainer.
 --
--- The reference blueprint contains seven holding lanes plus one through track.
--- Its canonical orientation has a vertical entrance on the left, horizontal
--- waiting tracks, and a vertical exit on the right.
+-- Its canonical orientation has a vertical entrance on the left, eight
+-- horizontal waiting lanes, and a vertical exit on the right.
 --
--- For a 1-5 train the generated entity set reproduces the supplied blueprint
--- entity-for-entity after translation, including all rail and signal positions.
+-- For a 1-5 train with eight lanes, the generated entity set reproduces the
+-- supplied blueprint entity-for-entity after translation, including all rail
+-- and signal positions.
 
 local LANE_SPACING = 4
 local REFERENCE_TOTAL_CARS = 6
@@ -143,9 +143,7 @@ local function build_native_parallel(settings)
     local builder = Builder.new()
     local add = make_unique_adder(builder)
 
-    -- The requested number is the number of holding lanes. The first physical
-    -- track is the through track used by the supplied reference design.
-    local track_count = settings.stacker_lanes + 1
+    local track_count = settings.stacker_lanes
     local rail_count = straight_rail_count(settings)
     local straight_end_x = (rail_count - 1) * 2
     local exit_curve_x = straight_end_x + 3
@@ -177,10 +175,8 @@ local function build_native_parallel(settings)
     })
 
     if settings.include_train then
-        -- Keep the through track clear and place one train in each requested
-        -- holding lane.
-        for holding_lane = 1, settings.stacker_lanes do
-            add_horizontal_train(add, settings, holding_lane * LANE_SPACING)
+        for lane = 0, track_count - 1 do
+            add_horizontal_train(add, settings, lane * LANE_SPACING)
         end
     end
 
