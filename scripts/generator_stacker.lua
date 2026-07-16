@@ -3,25 +3,16 @@ local Common = require("scripts.generator_common")
 
 local Stacker = {}
 
--- Native Factorio 2.1 stacker geometry derived from a known-working in-game
--- 1-5 train / 8-lane blueprint supplied by the project maintainer.
---
--- Its canonical orientation has a vertical entrance on the left, eight
--- horizontal waiting lanes, and a vertical exit on the right.
---
--- For a 1-5 train with eight lanes, the generated entity set reproduces the
--- supplied blueprint entity-for-entity after translation, including all rail
--- and signal positions.
+-- Native Factorio 2.1 parallel stacker geometry is based on known-working,
+-- manually built in-game references supplied by the project maintainer.
+-- Left-Right and Right-Left use dedicated layouts because modern rail curves
+-- cannot be mirrored reliably by only flipping entity coordinates/directions.
 
 local LANE_SPACING = 4
 local REFERENCE_TOTAL_CARS = 6
 local REFERENCE_STRAIGHT_RAILS = 16
 local STRAIGHT_RAILS_PER_EXTRA_CAR = 4
 local MINIMUM_STRAIGHT_RAILS = 8
-
-local function modulo(value, divisor)
-    return ((value % divisor) + divisor) % divisor
-end
 
 local function normalize_stacker_type(stacker_type)
     return stacker_type == "Right-Left" and "Right-Left" or "Left-Right"
@@ -66,7 +57,7 @@ local function add_vertical_rails(add, x, first_y, last_y)
     end
 end
 
-local function add_entry_transition(add, lane_y)
+local function add_left_right_entry_transition(add, lane_y)
     add("curved-rail-a", -14, lane_y - 11, {
         direction = defines.direction.south,
     })
@@ -81,7 +72,7 @@ local function add_entry_transition(add, lane_y)
     })
 end
 
-local function add_exit_transition(add, lane_y, exit_curve_x)
+local function add_left_right_exit_transition(add, lane_y, exit_curve_x)
     add("curved-rail-a", exit_curve_x, lane_y, {
         direction = defines.direction.southeast,
     })
@@ -96,6 +87,36 @@ local function add_exit_transition(add, lane_y, exit_curve_x)
     })
 end
 
+local function add_right_left_left_transition(add, lane_y)
+    add("curved-rail-a", -14, lane_y + 11, {
+        direction = defines.direction.northeast,
+    })
+    add("curved-rail-b", -12, lane_y + 6, {
+        direction = defines.direction.northeast,
+    })
+    add("curved-rail-b", -8, lane_y + 2, {
+        direction = defines.direction.west,
+    })
+    add("curved-rail-a", -3, lane_y, {
+        direction = defines.direction.west,
+    })
+end
+
+local function add_right_left_right_transition(add, lane_y, exit_curve_x)
+    add("curved-rail-a", exit_curve_x, lane_y, {
+        direction = defines.direction.east,
+    })
+    add("curved-rail-b", exit_curve_x + 5, lane_y - 2, {
+        direction = defines.direction.east,
+    })
+    add("curved-rail-b", exit_curve_x + 9, lane_y - 6, {
+        direction = defines.direction.southwest,
+    })
+    add("curved-rail-a", exit_curve_x + 11, lane_y - 11, {
+        direction = defines.direction.southwest,
+    })
+end
+
 local function straight_rail_count(settings)
     local total_cars = Common.total_cars(settings)
     local count = REFERENCE_STRAIGHT_RAILS
@@ -103,7 +124,7 @@ local function straight_rail_count(settings)
 
     count = math.max(MINIMUM_STRAIGHT_RAILS, count)
 
-    -- The supplied reference blueprint does not contain trains. When train
+    -- The supplied reference blueprints do not contain trains. When train
     -- placement is requested, lengthen the straight waiting section enough to
     -- keep every rolling-stock centre on straight rail.
     if settings.include_train then
@@ -115,20 +136,22 @@ local function straight_rail_count(settings)
     return count
 end
 
-local function add_horizontal_train(add, settings, lane_y)
+local function add_horizontal_train(add, settings, lane_y, right_to_left)
     local index = 0
     local first_x = 4
+    local forward_orientation = right_to_left and 0.75 or 0.25
+    local rear_orientation = right_to_left and 0.25 or 0.75
 
     for _ = 1, settings.locomotives do
         add("locomotive", first_x + index * 7, lane_y, {
-            orientation = 0.25,
+            orientation = forward_orientation,
         })
         index = index + 1
     end
 
     for _ = 1, settings.cargo_wagons do
         add("cargo-wagon", first_x + index * 7, lane_y, {
-            orientation = 0.25,
+            orientation = forward_orientation,
         })
         index = index + 1
     end
@@ -136,14 +159,14 @@ local function add_horizontal_train(add, settings, lane_y)
     if settings.double_headed then
         for _ = 1, settings.locomotives do
             add("locomotive", first_x + index * 7, lane_y, {
-                orientation = 0.75,
+                orientation = rear_orientation,
             })
             index = index + 1
         end
     end
 end
 
-local function build_native_parallel(settings)
+local function build_left_right_native_parallel(settings)
     local builder = Builder.new()
     local add = make_unique_adder(builder)
 
@@ -154,17 +177,15 @@ local function build_native_parallel(settings)
     local output_x = exit_curve_x + 11
     local last_lane_y = (track_count - 1) * LANE_SPACING
 
-    -- Shared entrance and exit trunks. Their endpoints are determined by the
-    -- first and last native curve transitions, exactly as in the reference.
     add_vertical_rails(add, -14, -12, last_lane_y - 14)
     add_vertical_rails(add, output_x, 14, last_lane_y + 12)
 
     for track = 0, track_count - 1 do
         local lane_y = track * LANE_SPACING
 
-        add_entry_transition(add, lane_y)
+        add_left_right_entry_transition(add, lane_y)
         add_horizontal_rails(add, lane_y, rail_count)
-        add_exit_transition(add, lane_y, exit_curve_x)
+        add_left_right_exit_transition(add, lane_y, exit_curve_x)
 
         add("rail-chain-signal", -1.5, lane_y - 1.5, {
             direction = defines.direction.east,
@@ -180,40 +201,67 @@ local function build_native_parallel(settings)
 
     if settings.include_train then
         for lane = 0, track_count - 1 do
-            add_horizontal_train(add, settings, lane * LANE_SPACING)
+            add_horizontal_train(add, settings, lane * LANE_SPACING, false)
         end
     end
 
     return builder.entities
 end
 
-local function transform_direction(direction, mirror_x)
-    if direction == nil or not mirror_x then return direction end
-    return modulo(16 - direction, 16)
-end
+local function build_right_left_native_parallel(settings)
+    local builder = Builder.new()
+    local add = make_unique_adder(builder)
 
-local function transform_orientation(orientation, mirror_x)
-    if orientation == nil or not mirror_x then return orientation end
-    return modulo(1 - orientation, 1)
-end
+    local track_count = settings.stacker_lanes
+    local rail_count = straight_rail_count(settings)
+    local straight_end_x = (rail_count - 1) * 2
+    local exit_curve_x = straight_end_x + 3
+    local output_x = exit_curve_x + 11
+    local last_lane_y = (track_count - 1) * LANE_SPACING
 
-local function transform_native_layout(entities, settings)
-    -- Left-Right is the canonical supplied orientation. Right-Left remains the
-    -- existing horizontal reflection for now; its native curve prototype and
-    -- direction mapping will be verified only after Left-Right is proven.
-    local mirror_x = normalize_stacker_type(settings.stacker_type) == "Right-Left"
+    -- Dedicated Right-Left geometry taken from the maintainer's manually built
+    -- 1-locomotive / 4-wagon / 3-lane Factorio 2.1 reference blueprint.
+    add_vertical_rails(add, -14, 14, last_lane_y + 12)
+    add_vertical_rails(add, output_x, -12, last_lane_y - 14)
 
-    for _, item in ipairs(entities) do
-        if mirror_x then item.position.x = -item.position.x end
-        item.direction = transform_direction(item.direction, mirror_x)
-        item.orientation = transform_orientation(item.orientation, mirror_x)
+    for track = 0, track_count - 1 do
+        local lane_y = track * LANE_SPACING
+
+        add_right_left_left_transition(add, lane_y)
+        add_horizontal_rails(add, lane_y, rail_count)
+        add_right_left_right_transition(add, lane_y, exit_curve_x)
+
+        add("rail-signal", -4.5, lane_y + 1.5, {
+            direction = defines.direction.westsouthwest,
+        })
+        add("rail-chain-signal", exit_curve_x - 1.5, lane_y + 1.5, {
+            direction = defines.direction.west,
+        })
     end
 
-    return entities
+    -- Preserve the chain signals at both outer ends from the manual reference.
+    add("rail-chain-signal", -12.5, last_lane_y + 12.5, {
+        direction = defines.direction.south,
+    })
+    add("rail-chain-signal", output_x + 1.5, -12.5, {
+        direction = defines.direction.south,
+    })
+
+    if settings.include_train then
+        for lane = 0, track_count - 1 do
+            add_horizontal_train(add, settings, lane * LANE_SPACING, true)
+        end
+    end
+
+    return builder.entities
 end
 
 local function generate_native_parallel(settings)
-    return transform_native_layout(build_native_parallel(settings), settings)
+    if normalize_stacker_type(settings.stacker_type) == "Right-Left" then
+        return build_right_left_native_parallel(settings)
+    end
+
+    return build_left_right_native_parallel(settings)
 end
 
 -- Legacy diagonal generator retained temporarily while its separate native 2.1

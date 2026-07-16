@@ -1,4 +1,19 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.2
+Date: 16. 07. 2026
+  Major Features:
+    - Added a dedicated Right-Left parallel stacker layout based on a manually built Factorio 2.1 reference.
+  Changes:
+    - Right-Left stackers are now confirmed working with Factorio 2.1 native rails.
+    - Right-Left stackers now use their own rail layout instead of reusing the Left-Right layout in reverse.
+    - Added the correct Right-Left entrance and exit curves, vertical connections, and lane signal placement.
+    - Preserved chain signals at both outer ends of the Right-Left stacker reference layout.
+    - Trains included in Right-Left stacker blueprints now face the correct travel direction.
+    - Left-Right stacker generation remains unchanged from the confirmed working 0.3.1 layout.
+  Known Issues:
+    - Diagonal stackers are still under active development and may generate lanes that are longer than necessary or place some rail signals incorrectly.
+    - Improvements to diagonal stacker sizing and signal placement are being worked on for a future update.
+---------------------------------------------------------------------------------------------------
 Version: 0.3.1
 Date: 16. 07. 2026
   Bugfixes:
