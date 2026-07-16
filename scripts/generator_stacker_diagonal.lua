@@ -119,26 +119,13 @@ local function prepare_chunk(surface, prepared_chunks, chunk_x, chunk_y)
     local key = chunk_key(chunk_x, chunk_y)
     if prepared_chunks[key] then return end
 
-    local center = {
-        x = chunk_x * 32 + 16,
-        y = chunk_y * 32 + 16,
-    }
-
     if not surface.is_chunk_generated({ x = chunk_x, y = chunk_y }) then
-        surface.request_to_generate_chunks(center, 1)
+        surface.request_to_generate_chunks({
+            x = chunk_x * 32 + 16,
+            y = chunk_y * 32 + 16,
+        }, 0)
         surface.force_generate_chunk_requests()
     end
-
-    local tiles = {}
-    for x = chunk_x * 32, chunk_x * 32 + 31 do
-        for y = chunk_y * 32, chunk_y * 32 + 31 do
-            tiles[#tiles + 1] = {
-                name = "landfill",
-                position = { x = x, y = y },
-            }
-        end
-    end
-    surface.set_tiles(tiles)
 
     prepared_chunks[key] = true
 end
@@ -148,8 +135,8 @@ local function prepare_position(surface, prepared_chunks, position)
     local chunk_y = math.floor(position.y / 32)
 
     -- Curved rails can extend several tiles beyond their entity position. Keep
-    -- a one-chunk land corridor around the path so script-created test rails do
-    -- not fail because a generated chunk happened to contain water or cliffs.
+    -- a one-chunk lab-tile corridor around the path so temporary geometry never
+    -- depends on the active save's terrain or collision layout.
     for x = chunk_x - 1, chunk_x + 1 do
         for y = chunk_y - 1, chunk_y + 1 do
             prepare_chunk(surface, prepared_chunks, x, y)
@@ -202,20 +189,20 @@ local function extend(surface, prepared_chunks, rail_end, turn, rail_entities)
             extension.name
         ))
     end
-
-    return rail
 end
 
 local function create_geometry_surface()
     local stale_surface = game.surfaces[TEMP_SURFACE_NAME]
     if stale_surface then game.delete_surface(stale_surface) end
 
-    return game.create_surface(TEMP_SURFACE_NAME, {
+    local surface = game.create_surface(TEMP_SURFACE_NAME, {
         seed = 0,
         default_enable_all_autoplace_controls = false,
         peaceful_mode = true,
         no_enemies_mode = true,
     })
+    surface.generate_with_lab_tiles = true
+    return surface
 end
 
 local function build_lane_template(settings, heading, first_turn)
@@ -276,7 +263,7 @@ local function build_lane_template(settings, heading, first_turn)
     return result
 end
 
-local function append_lane(builder, add, template, x_offset, y_offset)
+local function append_lane(add, template, x_offset, y_offset)
     for _, rail in ipairs(template.rails) do
         add(rail.name, rail.position.x + x_offset, rail.position.y + y_offset, {
             direction = rail.direction,
@@ -323,7 +310,7 @@ function DiagonalStacker.generate(settings)
     local template = build_lane_template(settings, heading, first_turn)
 
     for lane = 0, settings.stacker_lanes - 1 do
-        append_lane(builder, add, template, lane * lane_step_x, lane * lane_step_y)
+        append_lane(add, template, lane * lane_step_x, lane * lane_step_y)
     end
 
     add(
