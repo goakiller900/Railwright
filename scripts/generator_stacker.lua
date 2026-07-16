@@ -3,24 +3,24 @@ local Common = require("scripts.generator_common")
 
 local Stacker = {}
 
--- Native Factorio 2.1 rail geometry uses a different curve system than the
--- pre-2.0 rails. The parallel stacker below is built from a known-valid
--- 4-tile lane transition:
+-- Native Factorio 2.1 stacker geometry derived from a known-working in-game
+-- 1-5 train / 7 holding-lane blueprint supplied by the project maintainer.
 --
---   curved-rail-a -> half-diagonal-rail -> curved-rail-a
+-- The reference blueprint contains seven holding lanes plus one through track.
+-- Its canonical orientation has a vertical entrance on the left, horizontal
+-- waiting tracks, and a vertical exit on the right.
 --
--- The transition is repeated as a ladder so lane count and train length stay
--- fully dynamic instead of relying on one giant fixed blueprint template.
+-- For a 1-5 train the generated entity set reproduces the supplied blueprint
+-- entity-for-entity after translation, including all rail and signal positions.
 
 local LANE_SPACING = 4
-local FAN_STAGE_LENGTH = 14
-local INPUT_LEAD = 12
-local OUTPUT_LEAD = 16
+local REFERENCE_TOTAL_CARS = 6
+local REFERENCE_STRAIGHT_RAILS = 16
+local STRAIGHT_RAILS_PER_EXTRA_CAR = 4
+local MINIMUM_STRAIGHT_RAILS = 8
 
-local function even_at_least(value)
-    local rounded = math.ceil(value)
-    if rounded % 2 ~= 0 then rounded = rounded + 1 end
-    return rounded
+local function modulo(value, divisor)
+    return ((value % divisor) + divisor) % divisor
 end
 
 local function make_unique_adder(builder)
@@ -28,12 +28,12 @@ local function make_unique_adder(builder)
 
     return function(name, x, y, options)
         options = options or {}
-        local direction = options.direction
         local key = table.concat({
             name,
             string.format("%.3f", x),
             string.format("%.3f", y),
-            direction == nil and "" or tostring(direction),
+            options.direction == nil and "" or tostring(options.direction),
+            options.orientation == nil and "" or tostring(options.orientation),
         }, "|")
 
         if seen[key] then return seen[key] end
@@ -44,178 +44,193 @@ local function make_unique_adder(builder)
     end
 end
 
-local function add_horizontal_rails(add, y, first_x, last_x)
-    first_x = even_at_least(first_x)
-    if first_x > last_x then return end
-
-    for x = first_x, math.floor(last_x), 2 do
-        add("straight-rail", x, y, { direction = defines.direction.east })
+local function add_horizontal_rails(add, y, rail_count)
+    for index = 0, rail_count - 1 do
+        add("straight-rail", index * 2, y, {
+            direction = defines.direction.east,
+        })
     end
 end
 
-local function add_downward_fan_branch(add, x, source_y)
-    add("curved-rail-a", x, source_y, { direction = defines.direction.southeast })
-    add("half-diagonal-rail", x + 5, source_y + 2, { direction = defines.direction.southeast })
-    add("curved-rail-a", x + 10, source_y + LANE_SPACING, { direction = defines.direction.northwest })
+local function add_vertical_rails(add, x, first_y, last_y)
+    if first_y > last_y then return end
+
+    for y = first_y, last_y, 2 do
+        add("straight-rail", x, y, {
+            direction = defines.direction.north,
+        })
+    end
 end
 
-local function add_upward_merge_branch(add, x, upper_y)
-    add("curved-rail-a", x, upper_y + LANE_SPACING, { direction = defines.direction.northeast })
-    add("half-diagonal-rail", x + 5, upper_y + 2, { direction = defines.direction.southwest })
-    add("curved-rail-a", x + 10, upper_y, { direction = defines.direction.southwest })
+local function add_entry_transition(add, lane_y)
+    add("curved-rail-a", -14, lane_y - 11, {
+        direction = defines.direction.south,
+    })
+    add("curved-rail-b", -12, lane_y - 6, {
+        direction = defines.direction.south,
+    })
+    add("curved-rail-b", -8, lane_y - 2, {
+        direction = defines.direction.northwest,
+    })
+    add("curved-rail-a", -3, lane_y, {
+        direction = defines.direction.northwest,
+    })
 end
 
-local function add_horizontal_train(add, settings, lane_y, start_x)
-    if not settings.include_train then return end
+local function add_exit_transition(add, lane_y, exit_curve_x)
+    add("curved-rail-a", exit_curve_x, lane_y, {
+        direction = defines.direction.southeast,
+    })
+    add("curved-rail-b", exit_curve_x + 5, lane_y + 2, {
+        direction = defines.direction.southeast,
+    })
+    add("curved-rail-b", exit_curve_x + 9, lane_y + 6, {
+        direction = defines.direction.north,
+    })
+    add("curved-rail-a", exit_curve_x + 11, lane_y + 11, {
+        direction = defines.direction.north,
+    })
+end
 
+local function straight_rail_count(settings)
+    local total_cars = Common.total_cars(settings)
+    local count = REFERENCE_STRAIGHT_RAILS
+        + (total_cars - REFERENCE_TOTAL_CARS) * STRAIGHT_RAILS_PER_EXTRA_CAR
+
+    count = math.max(MINIMUM_STRAIGHT_RAILS, count)
+
+    -- The supplied reference blueprint does not contain trains. When train
+    -- placement is requested, lengthen the straight waiting section enough to
+    -- keep every rolling-stock centre on straight rail.
+    if settings.include_train then
+        local train_span = math.max(0, total_cars - 1) * 7 + 8
+        local required = math.ceil(train_span / 2) + 1
+        count = math.max(count, required)
+    end
+
+    return count
+end
+
+local function add_horizontal_train(add, settings, lane_y)
     local index = 0
-    local train_y = lane_y + 1
+    local first_x = 4
 
     for _ = 1, settings.locomotives do
-        add("locomotive", start_x + index * 7, train_y, { orientation = 0.25 })
+        add("locomotive", first_x + index * 7, lane_y, {
+            orientation = 0.25,
+        })
         index = index + 1
     end
 
     for _ = 1, settings.cargo_wagons do
-        add("cargo-wagon", start_x + index * 7, train_y, { orientation = 0.25 })
+        add("cargo-wagon", first_x + index * 7, lane_y, {
+            orientation = 0.25,
+        })
         index = index + 1
     end
 
     if settings.double_headed then
         for _ = 1, settings.locomotives do
-            add("locomotive", start_x + index * 7, train_y, { orientation = 0.75 })
+            add("locomotive", first_x + index * 7, lane_y, {
+                orientation = 0.75,
+            })
             index = index + 1
         end
     end
 end
 
-local function build_native_parallel_horizontal(settings)
+local function build_native_parallel(settings)
     local builder = Builder.new()
     local add = make_unique_adder(builder)
-    local lanes = settings.stacker_lanes
 
-    local fan_end_x = FAN_STAGE_LENGTH * math.max(0, lanes - 1)
-    local waiting_length = even_at_least(Common.train_length(settings) + 16)
-    local merge_start_x = fan_end_x + waiting_length + 1 -- curve anchors use the odd rail-grid column
-    local final_merge_x = merge_start_x + FAN_STAGE_LENGTH * math.max(0, lanes - 2)
-    local output_end_x = final_merge_x + FAN_STAGE_LENGTH + OUTPUT_LEAD
+    -- The requested number is the number of holding lanes. The first physical
+    -- track is the through track used by the supplied reference design.
+    local track_count = settings.stacker_lanes + 1
+    local rail_count = straight_rail_count(settings)
+    local straight_end_x = (rail_count - 1) * 2
+    local exit_curve_x = straight_end_x + 3
+    local output_x = exit_curve_x + 11
+    local last_lane_y = (track_count - 1) * LANE_SPACING
 
-    -- Entry ladder. Each stage branches the previous lane down by four tiles.
-    for lane = 2, lanes do
-        local source_y = (lane - 2) * LANE_SPACING
-        local branch_x = 1 + (lane - 2) * FAN_STAGE_LENGTH
-        add_downward_fan_branch(add, branch_x, source_y)
-    end
+    -- Shared entrance and exit trunks. Their endpoints are determined by the
+    -- first and last native curve transitions, exactly as in the reference.
+    add_vertical_rails(add, -14, -12, last_lane_y - 14)
+    add_vertical_rails(add, output_x, 14, last_lane_y + 12)
 
-    -- Exit ladder. The same proven transition is mirrored horizontally to
-    -- merge the outer lanes back into lane 1 without legacy curved rails.
-    for lane = lanes, 2, -1 do
-        local upper_y = (lane - 2) * LANE_SPACING
-        local merge_x = merge_start_x + (lanes - lane) * FAN_STAGE_LENGTH
-        add_upward_merge_branch(add, merge_x, upper_y)
-    end
+    for track = 0, track_count - 1 do
+        local lane_y = track * LANE_SPACING
 
-    -- Lane 1 is the through line. Every other lane begins after its entry
-    -- transition and ends immediately before its own merge transition.
-    add_horizontal_rails(add, 0, -INPUT_LEAD, output_end_x)
+        add_entry_transition(add, lane_y)
+        add_horizontal_rails(add, lane_y, rail_count)
+        add_exit_transition(add, lane_y, exit_curve_x)
 
-    for lane = 2, lanes do
-        local lane_y = (lane - 1) * LANE_SPACING
-        local lane_start_x = FAN_STAGE_LENGTH * (lane - 1)
-        local lane_merge_x = merge_start_x + (lanes - lane) * FAN_STAGE_LENGTH
-        add_horizontal_rails(add, lane_y, lane_start_x, lane_merge_x - 1)
-    end
-
-    -- One-way eastbound signalling. Signals are deliberately placed on long
-    -- straight sections, away from the new curve pieces, to keep attachment
-    -- positions stable across all lane counts and train lengths.
-    add("rail-chain-signal", -INPUT_LEAD + 1.5, -1.5, {
-        direction = defines.direction.east,
-    })
-
-    local waiting_signal_x = fan_end_x + 1.5
-    for lane = 1, lanes do
-        local lane_y = (lane - 1) * LANE_SPACING
-        add("rail-signal", waiting_signal_x, lane_y - 1.5, {
+        add("rail-chain-signal", -1.5, lane_y - 1.5, {
             direction = defines.direction.east,
         })
-
-        local lane_merge_x = lane == 1
-            and merge_start_x
-            or merge_start_x + (lanes - lane) * FAN_STAGE_LENGTH
-        add("rail-chain-signal", lane_merge_x - 2.5, lane_y - 1.5, {
-            direction = defines.direction.east,
+        add("rail-signal", exit_curve_x + 2.5, lane_y - 0.5, {
+            direction = defines.direction.eastsoutheast,
         })
     end
 
-    add("rail-signal", final_merge_x + 14.5, -1.5, {
-        direction = defines.direction.east,
+    add("rail-chain-signal", output_x + 1.5, last_lane_y + 12.5, {
+        direction = defines.direction.south,
     })
 
-    local train_start_x = fan_end_x + 5
-    for lane = 1, lanes do
-        add_horizontal_train(add, settings, (lane - 1) * LANE_SPACING, train_start_x)
+    if settings.include_train then
+        -- Keep the through track clear and place one train in each requested
+        -- holding lane.
+        for holding_lane = 1, settings.stacker_lanes do
+            add_horizontal_train(add, settings, holding_lane * LANE_SPACING)
+        end
     end
 
     return builder.entities
 end
 
-local function modulo(value, divisor)
-    return ((value % divisor) + divisor) % divisor
-end
-
-local function transform_direction(direction, mirror_x, mirror_y, rotate_ccw)
+local function transform_direction(direction, mirror_x, mirror_y)
     if direction == nil then return nil end
 
     local result = direction
     if mirror_x then result = modulo(16 - result, 16) end
     if mirror_y then result = modulo(8 - result, 16) end
-    if rotate_ccw then result = modulo(result - 4, 16) end
     return result
 end
 
-local function transform_orientation(orientation, mirror_x, mirror_y, rotate_ccw)
+local function transform_orientation(orientation, mirror_x, mirror_y)
     if orientation == nil then return nil end
 
     local result = orientation
     if mirror_x then result = modulo(1 - result, 1) end
     if mirror_y then result = modulo(0.5 - result, 1) end
-    if rotate_ccw then result = modulo(result - 0.25, 1) end
     return result
 end
 
-local function transform_entities(entities, settings)
-    local mirror_x = settings.stacker_type == "Right-Left" or settings.stacker_type == "Right-Right"
-    local mirror_y = settings.stacker_type == "Left-Left" or settings.stacker_type == "Right-Right"
+local function transform_native_layout(entities, settings)
+    -- Left-Right is the canonical supplied orientation. The other existing
+    -- Railwright options are exact reflections of that connected geometry.
+    local mirror_x = settings.stacker_type == "Right-Left"
+        or settings.stacker_type == "Right-Right"
+    local mirror_y = settings.stacker_type == "Left-Left"
+        or settings.stacker_type == "Right-Right"
 
     for _, item in ipairs(entities) do
-        local x = item.position.x
-        local y = item.position.y
+        if mirror_x then item.position.x = -item.position.x end
+        if mirror_y then item.position.y = -item.position.y end
 
-        if mirror_x then x = -x end
-        if mirror_y then y = -y end
-
-        item.direction = transform_direction(item.direction, mirror_x, mirror_y, true)
-        item.orientation = transform_orientation(item.orientation, mirror_x, mirror_y, true)
-
-        -- Rotate the canonical eastbound layout 90 degrees counter-clockwise
-        -- so the non-diagonal stacker remains vertically oriented like the
-        -- original Railwright/Burnys layout.
-        item.position.x = y
-        item.position.y = -x
+        item.direction = transform_direction(item.direction, mirror_x, mirror_y)
+        item.orientation = transform_orientation(item.orientation, mirror_x, mirror_y)
     end
 
     return entities
 end
 
-local function generate_native_vertical(settings)
-    return transform_entities(build_native_parallel_horizontal(settings), settings)
+local function generate_native_parallel(settings)
+    return transform_native_layout(build_native_parallel(settings), settings)
 end
 
--- Legacy diagonal generator retained temporarily while the second native 2.1
--- transition family is rebuilt. Keeping it isolated here lets the parallel
--- modern geometry be tested independently before the old rail dependency is
--- removed completely.
+-- Legacy diagonal generator retained temporarily while its separate native 2.1
+-- geometry is rebuilt. It is isolated so the supplied parallel stacker can be
+-- verified independently before the final legacy dependency is removed.
 
 local function legacy_direction(old_direction)
     return old_direction and old_direction * 2 or nil
@@ -351,7 +366,7 @@ function Stacker.generate(settings)
     if settings.stacker_diagonal then
         return generate_legacy_diagonal(settings)
     end
-    return generate_native_vertical(settings)
+    return generate_native_parallel(settings)
 end
 
 return Stacker
