@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.3
+Date: 16. 07. 2026
+  Changes:
+    - Reworked diagonal stacker lane sizing so holding lanes scale much closer to the selected train length instead of being excessively long.
+    - Reworked diagonal lane signal placement using the completed rail path instead of copying every signal from the same template position.
+    - Added staggered lane signals for both Left-Right and Right-Left diagonal stackers based on verified manual reference layouts.
+    - Added chain signals at both outer ends of diagonal stackers.
+    - Adjusted diagonal signal positions to stay aligned with Factorio 2.1 native rail placement.
+  Testing:
+    - Left-Right and Right-Left diagonal layouts are being verified against manually built 1-locomotive, 4-wagon, 3-lane references before release.
+---------------------------------------------------------------------------------------------------
 Version: 0.3.2
 Date: 16. 07. 2026
   Major Features:
