@@ -10,6 +10,9 @@ Date: 16. 07. 2026
     - Preserved chain signals at both outer ends of the Right-Left stacker reference layout.
     - Trains included in Right-Left stacker blueprints now face the correct travel direction.
     - Left-Right stacker generation remains unchanged from the confirmed working 0.3.1 layout.
+  Known Issues:
+    - Diagonal stackers are still under active development and may generate lanes that are longer than necessary or place some rail signals incorrectly.
+    - Improvements to diagonal stacker sizing and signal placement are being worked on for a future update.
 ---------------------------------------------------------------------------------------------------
 Version: 0.3.1
 Date: 16. 07. 2026
