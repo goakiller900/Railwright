@@ -6,6 +6,7 @@ local State = require("scripts.state")
 
 local SHORTCUT_NAME = "railwright-open"
 local DEBUG_COMMAND = "railwright-debug-stackers"
+local EXPERIMENTAL_DIAGONAL_COMMAND = "railwright-experimental-diagonal"
 
 local function setup_player(player)
     State.ensure_player(player.index)
@@ -36,6 +37,23 @@ commands.add_command(DEBUG_COMMAND, "Toggle Railwright stacker blueprint diagnos
         player.print({ "", "[Railwright] Stacker blueprint diagnostics enabled. Generate a stacker, then check factorio-current.log." })
     else
         player.print({ "", "[Railwright] Stacker blueprint diagnostics disabled." })
+    end
+end)
+
+commands.add_command(EXPERIMENTAL_DIAGONAL_COMMAND, "Toggle an experimental Railwright stacker mode.", function(command)
+    if not command.player_index then
+        log("[Railwright] /" .. EXPERIMENTAL_DIAGONAL_COMMAND .. " can only be used by a player.")
+        return
+    end
+
+    local player = game.get_player(command.player_index)
+    if not player then return end
+
+    local enabled = State.toggle_experimental_diagonal(player.index)
+    if enabled then
+        player.print({ "", "[Railwright] Experimental stacker mode enabled for this player." })
+    else
+        player.print({ "", "[Railwright] Experimental stacker mode disabled for this player." })
     end
 end)
 
@@ -80,6 +98,10 @@ script.on_event(defines.events.on_gui_click, function(event)
     if not settings then
         player.print({ "", "[Railwright] ", read_error })
         return
+    end
+
+    if settings.station_type == "stacker" then
+        settings.stacker_diagonal = State.is_experimental_diagonal_enabled(player.index)
     end
 
     local call_ok, generated, result = pcall(Generator.generate_into_cursor, player, settings)
