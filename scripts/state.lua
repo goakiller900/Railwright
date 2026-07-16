@@ -55,7 +55,7 @@ local default_settings = {
     lamps = false,
 
     stacker_lanes = 3,
-    stacker_diagonal = true,
+    stacker_diagonal = false,
     stacker_type = "Left-Right",
 }
 
@@ -91,6 +91,10 @@ local function normalize_settings(settings)
     if not valid_stacker_types[settings.stacker_type] then
         settings.stacker_type = "Left-Right"
     end
+
+    -- Diagonal stackers are no longer exposed. Migrate existing saved selections
+    -- to the supported parallel layout without resetting the rest of the settings.
+    settings.stacker_diagonal = false
 
     return settings
 end
