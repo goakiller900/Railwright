@@ -1,4 +1,5 @@
 local Common = require("scripts.generator_common")
+local Debug = require("scripts.generator_debug")
 local Fluid = require("scripts.generator_fluid")
 local Normal = require("scripts.generator_normal")
 local Stacker = require("scripts.generator_stacker")
@@ -179,7 +180,19 @@ function Generator.generate_into_cursor(player, settings)
         return false, "Could not create a blueprint in your cursor."
     end
 
+    local debug_enabled = settings.station_type == "stacker" and Debug.is_enabled(player.index)
+    if debug_enabled then
+        Debug.log_settings(settings)
+        Debug.log_snapshot("pre-set", entities)
+    end
+
     cursor.set_blueprint_entities(entities)
+
+    if debug_enabled then
+        local stored_entities = cursor.get_blueprint_entities() or {}
+        Debug.log_snapshot("post-set", stored_entities)
+        Debug.log_comparison("pre-set-vs-post-set", entities, stored_entities)
+    end
 
     local label
     if settings.station_type == "stacker" then
@@ -188,6 +201,10 @@ function Generator.generate_into_cursor(player, settings)
         label = settings.station_name ~= "" and settings.station_name or "Railwright Station"
     end
     cursor.label = label
+
+    if debug_enabled then
+        log("[Railwright][blueprint-debug][export] " .. cursor.export_stack())
+    end
 
     return true, #entities
 end

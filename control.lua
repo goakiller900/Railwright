@@ -1,9 +1,11 @@
 local Constants = require("scripts.constants")
+local Debug = require("scripts.generator_debug")
 local Generator = require("scripts.generator")
 local Gui = require("scripts.gui")
 local State = require("scripts.state")
 
 local SHORTCUT_NAME = "railwright-open"
+local DEBUG_COMMAND = "railwright-debug-stackers"
 
 local function setup_player(player)
     State.ensure_player(player.index)
@@ -19,6 +21,23 @@ local function setup_all_players()
         setup_player(player)
     end
 end
+
+commands.add_command(DEBUG_COMMAND, "Toggle Railwright stacker blueprint diagnostics.", function(command)
+    if not command.player_index then
+        log("[Railwright] /" .. DEBUG_COMMAND .. " can only be used by a player.")
+        return
+    end
+
+    local player = game.get_player(command.player_index)
+    if not player then return end
+
+    local enabled = Debug.toggle(player.index)
+    if enabled then
+        player.print({ "", "[Railwright] Stacker blueprint diagnostics enabled. Generate a stacker, then check factorio-current.log." })
+    else
+        player.print({ "", "[Railwright] Stacker blueprint diagnostics disabled." })
+    end
+end)
 
 script.on_init(setup_all_players)
 script.on_configuration_changed(setup_all_players)
