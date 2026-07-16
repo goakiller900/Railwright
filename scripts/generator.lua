@@ -164,11 +164,29 @@ function Generator.create_entities(settings)
     return {}
 end
 
+local function compensate_native_parallel_signal_positions(settings, entities)
+    if settings.station_type ~= "stacker" or settings.stacker_diagonal then return entities end
+
+    -- Factorio 2.1 canonicalizes native rail entity positions by +1,+1 when
+    -- set_blueprint_entities() stores the blueprint, while rail signals keep the
+    -- exact supplied coordinates. Apply the same translation to parallel-stacker
+    -- signals first so the exported blueprint preserves their intended placement
+    -- relative to the rails.
+    for _, entity in ipairs(entities) do
+        if entity.name == "rail-signal" or entity.name == "rail-chain-signal" then
+            entity.position.x = entity.position.x + 1
+            entity.position.y = entity.position.y + 1
+        end
+    end
+
+    return entities
+end
+
 function Generator.generate_into_cursor(player, settings)
     local valid, error_message = Generator.validate_settings(settings)
     if not valid then return false, error_message end
 
-    local entities = Generator.create_entities(settings)
+    local entities = compensate_native_parallel_signal_positions(settings, Generator.create_entities(settings))
     if #entities == 0 then return false, "The selected settings produced an empty blueprint." end
 
     if not player.clear_cursor() then
