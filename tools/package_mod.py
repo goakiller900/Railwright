@@ -32,6 +32,10 @@ EXCLUDED_FILES = {
     "Thumbs.db",
 }
 
+# The Factorio Mod Portal rejects archives containing executable tooling.
+# Keep build and maintenance scripts in Git, but never distribute them in the mod.
+FORBIDDEN_PORTAL_SUFFIXES = {".exe", ".bat", ".ps1", ".sh", ".py"}
+
 
 def load_mod_metadata() -> tuple[str, str]:
     try:
@@ -57,7 +61,7 @@ def should_include(path: Path) -> bool:
         return False
     if path.name in EXCLUDED_FILES:
         return False
-    if path.suffix in {".pyc", ".pyo"}:
+    if path.suffix.lower() in FORBIDDEN_PORTAL_SUFFIXES | {".pyc", ".pyo"}:
         return False
     return path.is_file()
 

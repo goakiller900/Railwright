@@ -36,6 +36,7 @@ $excludedTopLevel = @(
     '__pycache__'
 )
 $excludedFiles = @('.DS_Store', 'Thumbs.db')
+$forbiddenPortalExtensions = @('.exe', '.bat', '.ps1', '.sh', '.py')
 
 $files = Get-ChildItem -LiteralPath $root -Recurse -File | Where-Object {
     $relativePath = $_.FullName.Substring($root.Length).TrimStart('\', '/')
@@ -43,6 +44,7 @@ $files = Get-ChildItem -LiteralPath $root -Recurse -File | Where-Object {
 
     $excludedTopLevel -notcontains $topLevel -and
         $excludedFiles -notcontains $_.Name -and
+        $forbiddenPortalExtensions -notcontains $_.Extension.ToLowerInvariant() -and
         $_.Extension -notin @('.pyc', '.pyo')
 } | Sort-Object FullName
 
@@ -95,6 +97,12 @@ try {
     }
     if ($entryNames -notcontains "${expectedPrefix}control.lua") {
         throw 'The generated archive does not contain control.lua at the mod root.'
+    }
+    $forbiddenEntries = @($verificationArchive.Entries | Where-Object {
+        $forbiddenPortalExtensions -contains [System.IO.Path]::GetExtension($_.FullName).ToLowerInvariant()
+    })
+    if ($forbiddenEntries.Count -gt 0) {
+        throw "The generated archive contains Mod Portal-forbidden scripts: $($forbiddenEntries.FullName -join ', ')"
     }
 }
 finally {

@@ -87,6 +87,13 @@ jobs:
 
           with zipfile.ZipFile(archive) as zf:
               names = zf.namelist()
+              forbidden_suffixes = (".exe", ".bat", ".ps1", ".sh", ".py")
+              forbidden = [name for name in names if name.lower().endswith(forbidden_suffixes)]
+              if forbidden:
+                  raise SystemExit(
+                      "Archive contains files forbidden by the Factorio Mod Portal: "
+                      + ", ".join(forbidden)
+                  )
               if not names:
                   raise SystemExit("Package is empty")
               if any(not name.startswith(expected_root) for name in names):
