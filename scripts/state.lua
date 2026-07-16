@@ -92,8 +92,7 @@ local function normalize_settings(settings)
         settings.stacker_type = "Left-Right"
     end
 
-    -- Diagonal stackers are no longer exposed. Migrate existing saved selections
-    -- to the supported parallel layout without resetting the rest of the settings.
+    -- The normal interface only exposes the supported parallel stackers.
     settings.stacker_diagonal = false
 
     return settings
@@ -101,6 +100,7 @@ end
 
 function State.ensure_root()
     storage.players = storage.players or {}
+    storage.experimental_diagonal_players = storage.experimental_diagonal_players or {}
 end
 
 function State.ensure_player(player_index)
@@ -122,6 +122,18 @@ end
 function State.set_player(player_index, settings)
     State.ensure_root()
     storage.players[player_index] = normalize_settings(settings)
+end
+
+function State.is_experimental_diagonal_enabled(player_index)
+    State.ensure_root()
+    return storage.experimental_diagonal_players[player_index] == true
+end
+
+function State.toggle_experimental_diagonal(player_index)
+    State.ensure_root()
+    local enabled = not State.is_experimental_diagonal_enabled(player_index)
+    storage.experimental_diagonal_players[player_index] = enabled or nil
+    return enabled
 end
 
 function State.defaults()
