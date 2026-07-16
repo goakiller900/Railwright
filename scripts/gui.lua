@@ -22,8 +22,17 @@ local function find_element(root, name)
     return nil
 end
 
+local function set_row_visible(root, name, visible)
+    local label = find_element(root, name .. "_label")
+    local control = find_element(root, name)
+    if label then label.visible = visible end
+    if control then control.visible = visible end
+end
+
 local function add_row(table_element, caption, definition)
-    table_element.add({ type = "label", caption = caption })
+    local label_definition = { type = "label", caption = caption }
+    if definition.name then label_definition.name = definition.name .. "_label" end
+    table_element.add(label_definition)
     return table_element.add(definition)
 end
 
@@ -133,6 +142,10 @@ function Gui.update_visibility(player)
     if fluid_group then fluid_group.visible = fluid_station end
     if behavior_group then behavior_group.visible = not stacker end
     if stacker_group then stacker_group.visible = stacker end
+
+    set_row_visible(frame, Constants.gui.station_name, not stacker)
+    set_row_visible(frame, Constants.gui.double_headed, not stacker)
+    set_row_visible(frame, Constants.gui.include_train, not stacker)
 end
 
 function Gui.open(player)
@@ -292,7 +305,6 @@ function Gui.open(player)
 
     local _, stacker = add_section(scroll, Constants.gui.stacker_group, { "railwright.section-stacker" })
     textfield(stacker, { "railwright.stacker-lanes" }, Constants.gui.stacker_lanes, settings.stacker_lanes, true)
-    checkbox(stacker, { "railwright.stacker-diagonal" }, Constants.gui.stacker_diagonal, settings.stacker_diagonal)
     dropdown(stacker, { "railwright.stacker-type" }, Constants.gui.stacker_type, Constants.stacker_types,
         find_index(Constants.stacker_types, settings.stacker_type))
 
@@ -425,7 +437,7 @@ function Gui.read_settings(player)
         lamps = get(Constants.gui.lamps).state,
 
         stacker_lanes = stacker_lanes,
-        stacker_diagonal = get(Constants.gui.stacker_diagonal).state,
+        stacker_diagonal = false,
         stacker_type = Constants.stacker_types[get(Constants.gui.stacker_type).selected_index] or "Left-Right",
     }
 end

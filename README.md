@@ -11,9 +11,9 @@ Railwright is an in-game train station blueprint generator for Factorio 2.1.
 
 The project is a modern successor inspired by BurnySc2's original **Train Station Blueprint Creator** (`BurnysTSBC`) and the later web-based Train Station Blueprint Creator. Railwright is a new implementation designed around the current Factorio runtime API and the prototypes that are actually available in the player's mod set.
 
-## Current status — 0.2.3
+## Current status — 0.3.3
 
-Railwright 0.2.3 is a packaging hotfix for the 0.2.2 shortcut-bar release. It keeps the native Factorio shortcut launcher while fixing the Mod Portal thumbnail package and adding stricter PNG validation to the release pipeline.
+Railwright 0.3.3 focuses the stacker generator on the two parallel layouts that are confirmed working with Factorio 2.1 native rails: **Left-Right** and **Right-Left**. The unreliable diagonal stacker option has been temporarily removed, and the stacker menu now hides station-only settings that do not apply to stacker blueprints.
 
 ### Station types
 
@@ -21,14 +21,13 @@ Railwright 0.2.3 is a packaging hotfix for the 0.2.2 shortcut-bar release. It ke
 - Item unloading stations.
 - Fluid loading stations.
 - Fluid unloading stations.
-- Vertical stackers.
-- Diagonal stackers.
+- Parallel stackers with Left-Right and Right-Left layouts.
 
 ### Train and layout settings
 
 - Configurable locomotives per end and wagon count.
-- Single-ended and double-headed trains.
-- Optional train placement in generated blueprints.
+- Single-ended and double-headed trains for station blueprints.
+- Optional train placement in generated station blueprints.
 - Left, right, or both sides for item stations.
 - Left or right pump side for fluid stations.
 - Configurable storage-tank columns.
@@ -63,11 +62,17 @@ The native entity and item pickers use the prototypes loaded by the running game
 
 See [`changelog.txt`](changelog.txt) for version history and [`ROADMAP.md`](ROADMAP.md) for planned work.
 
+## Diagonal stackers
+
+Starting with **0.3.3**, diagonal stacker generation is temporarily unavailable. The experimental Factorio 2.1 version was not reliable enough to ship consistently, especially when lane count, train length, and signal placement changed.
+
+If you have a reliable approach for generating diagonal stackers with modern Factorio 2.1 rails, contributions are very welcome. Please open a pull request with your implementation or a reproducible working layout that can be used as a reference.
+
 ## Known limitations
 
 Railwright is still under active development and the generator has many possible setting combinations.
 
-- Stacker templates currently use Factorio's compatibility/legacy rail prototypes while native 2.1 rail geometry is being developed.
+- Diagonal stackers are temporarily unavailable while a reliable Factorio 2.1 implementation is worked out.
 - The automatic dynamic train-limit behavior is available, but the web generator's advanced custom arithmetic formula controls are not exposed yet.
 - Unusual modded prototypes may still need additional capability detection even when they appear in a runtime picker.
 - Broad testing across overhaul mod packs is ongoing.
@@ -83,7 +88,7 @@ railwright
 or with the version suffix:
 
 ```text
-railwright_0.2.3
+railwright_0.3.3
 ```
 
 Start Factorio 2.1 and enable **Railwright** in the mod manager.
@@ -129,7 +134,7 @@ python tools/validate_png.py thumbnail.png graphics/railwright-shortcut-x56.png
 To preview the GitHub release notes generated from a changelog entry:
 
 ```text
-python tools/release_notes.py 0.2.3
+python tools/release_notes.py 0.3.3
 ```
 
 ## Usage
@@ -146,6 +151,8 @@ python tools/release_notes.py 0.2.3
 
 Feature and fix work should happen on branches rather than directly on `main`. Blueprint-generation reports should include the Railwright version, Factorio version, relevant mods, station settings, and the generated blueprint when practical.
 
+Diagonal stacker contributions are especially welcome. If you have a reliable modern Factorio 2.1 solution, please open a pull request so it can be tested across different train lengths and lane counts.
+
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the development workflow. GitHub issue templates are available for bugs and feature requests.
 
 ## Project structure
@@ -153,24 +160,24 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the development workflow. GitHub is
 ```text
 control.lua                         Runtime event wiring
 data.lua                            Shortcut-bar prototype definitions
-info.json                            Factorio mod metadata
-changelog.txt                        Factorio-native release changelog
-graphics/                             In-game shortcut and UI graphics
-locale/                              Localisation
-scripts/constants.lua                Shared identifiers and option lists
-scripts/state.lua                    Persistent per-player settings and migrations
-scripts/gui.lua                      In-game configuration interface
-scripts/generator.lua                Generator dispatch and validation
-scripts/generator_builder.lua        Shared blueprint entity/wire builder
-scripts/generator_common.lua         Shared train and station behavior logic
-scripts/generator_normal.lua         Item loading/unloading generation
-scripts/generator_fluid.lua          Fluid loading/unloading generation
-scripts/generator_stacker.lua        Vertical and diagonal stacker generation
-tools/package_mod.py                 Local/CI Factorio ZIP packager
-tools/release_notes.py               Changelog-to-GitHub release note generator
-tools/validate_png.py                PNG structure and release-art validation
-docs/RELEASING.md                    Release process and safety rules
-.github/workflows/build-mod.yml      Validation, packaging, releases, and portal uploads
+info.json                           Factorio mod metadata
+changelog.txt                       Factorio-native release changelog
+graphics/                           In-game shortcut and UI graphics
+locale/                             Localisation
+scripts/constants.lua               Shared identifiers and option lists
+scripts/state.lua                   Persistent per-player settings and migrations
+scripts/gui.lua                     In-game configuration interface
+scripts/generator.lua               Generator dispatch and validation
+scripts/generator_builder.lua       Shared blueprint entity/wire builder
+scripts/generator_common.lua        Shared train and station behavior logic
+scripts/generator_normal.lua        Item loading/unloading generation
+scripts/generator_fluid.lua         Fluid loading/unloading generation
+scripts/generator_stacker.lua       Parallel stacker generation
+tools/package_mod.py                Local/CI Factorio ZIP packager
+tools/release_notes.py              Changelog-to-GitHub release note generator
+tools/validate_png.py               PNG structure and release-art validation
+docs/RELEASING.md                   Release process and safety rules
+.github/workflows/build-mod.yml     Validation, packaging, releases, and portal uploads
 ```
 
 ## Credits

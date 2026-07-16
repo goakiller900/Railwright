@@ -1,4 +1,16 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.3
+Date: 16. 07. 2026
+  Changes:
+    - Removed the diagonal stacker option while that layout remains unreliable.
+    - Existing saved diagonal stacker selections automatically use the supported parallel stacker layout.
+    - Simplified the stacker menu by hiding station-only options such as station name, double-headed trains, and including a train in the blueprint.
+    - Left-Right and Right-Left parallel stackers remain available and unchanged.
+  Known Issues:
+    - Diagonal stackers are temporarily unavailable while a reliable Factorio 2.1 layout is still being worked out.
+  Community:
+    - If you have a reliable way to generate diagonal stackers with modern Factorio 2.1 rails, contributions and pull requests are very welcome on GitHub.
+---------------------------------------------------------------------------------------------------
 Version: 0.3.2
 Date: 16. 07. 2026
   Major Features:
