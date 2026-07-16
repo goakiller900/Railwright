@@ -2,7 +2,6 @@ local Common = require("scripts.generator_common")
 local Fluid = require("scripts.generator_fluid")
 local Normal = require("scripts.generator_normal")
 local Stacker = require("scripts.generator_stacker")
-local NativeStacker = require("scripts.generator_stacker_native")
 
 local Generator = {}
 
@@ -118,13 +117,13 @@ local function validate_fluid(settings)
 end
 
 local function validate_stacker(settings)
-    if settings.stacker_lanes < 1 then return false, "A stacker needs at least one lane." end
-    if settings.stacker_lanes > 100 then return false, "Stacker lanes must be 100 or fewer." end
+    if settings.stacker_lanes < 1 then return false, "A stacker needs at least one holding lane." end
+    if settings.stacker_lanes > 100 then return false, "Stacker holding lanes must be 100 or fewer." end
 
     local modern_rails = {
         "straight-rail",
-        "half-diagonal-rail",
         "curved-rail-a",
+        "curved-rail-b",
     }
 
     for _, rail_name in ipairs(modern_rails) do
@@ -133,9 +132,8 @@ local function validate_stacker(settings)
         end
     end
 
-    -- The parallel stacker is already fully native. The diagonal template is
-    -- kept on legacy rails only while its 2.1 transition geometry is rebuilt
-    -- on the modern-rails development branch.
+    -- The parallel stacker is fully native. The diagonal template remains on
+    -- compatibility rails only while its separate 2.1 geometry is rebuilt.
     if settings.stacker_diagonal then
         if not prototypes.entity["legacy-straight-rail"] or not prototypes.entity["legacy-curved-rail"] then
             return false, "The current diagonal stacker transition is still being migrated and needs compatibility rail prototypes."
@@ -159,10 +157,7 @@ end
 function Generator.create_entities(settings)
     if Common.is_item_station(settings) then return Normal.generate(settings) end
     if Common.is_fluid_station(settings) then return Fluid.generate(settings) end
-    if settings.station_type == "stacker" then
-        if settings.stacker_diagonal then return Stacker.generate(settings) end
-        return NativeStacker.generate(settings)
-    end
+    if settings.station_type == "stacker" then return Stacker.generate(settings) end
     return {}
 end
 
