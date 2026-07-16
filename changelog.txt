@@ -1,4 +1,19 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.0
+Date: 16. 07. 2026
+  Major Features:
+    - Rebuilt non-diagonal stackers around native Factorio 2.1 rail geometry.
+    - Replaced compatibility-era parallel stacker rails with straight-rail, curved-rail-a, and curved-rail-b entities derived from a known-working in-game blueprint.
+    - Rebuilt diagonal stackers around native Factorio 2.1 rail-planner geometry instead of compatibility rails.
+  Changes:
+    - Added scalable native stacker geometry for configurable lane counts and train lengths.
+    - Added native rail and signal placement based on verified blueprint coordinates.
+    - Added support for the existing stacker direction options by transforming the canonical native layout.
+    - Added runtime diagonal rail-path construction using Factorio's native rail extension API.
+    - Updated stacker validation to require the native Factorio 2.1 rail prototypes and rail planner used by the generators.
+  Compatibility:
+    - Stacker generation no longer depends on legacy-straight-rail or legacy-curved-rail prototypes.
+---------------------------------------------------------------------------------------------------
 Version: 0.2.3
 Date: 16. 07. 2026
   Bugfixes:

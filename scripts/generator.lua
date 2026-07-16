@@ -1,4 +1,6 @@
 local Common = require("scripts.generator_common")
+local Debug = require("scripts.generator_debug")
+local DiagonalStacker = require("scripts.generator_stacker_diagonal")
 local Fluid = require("scripts.generator_fluid")
 local Normal = require("scripts.generator_normal")
 local Stacker = require("scripts.generator_stacker")
@@ -117,11 +119,25 @@ local function validate_fluid(settings)
 end
 
 local function validate_stacker(settings)
-    if settings.stacker_lanes < 1 then return false, "A stacker needs at least one lane." end
-    if settings.stacker_lanes > 100 then return false, "Stacker lanes must be 100 or fewer." end
+    if settings.stacker_lanes < 1 then return false, "A stacker needs at least one holding lane." end
+    if settings.stacker_lanes > 100 then return false, "Stacker holding lanes must be 100 or fewer." end
 
-    if not prototypes.entity["legacy-straight-rail"] or not prototypes.entity["legacy-curved-rail"] then
-        return false, "This Factorio build does not provide the legacy rail prototypes required by the current stacker templates."
+    local modern_rails = {
+        "straight-rail",
+        "curved-rail-a",
+        "curved-rail-b",
+        "half-diagonal-rail",
+    }
+
+    for _, rail_name in ipairs(modern_rails) do
+        if not prototypes.entity[rail_name] then
+            return false, "This Factorio build does not provide the native rail prototype '" .. rail_name .. "'."
+        end
+    end
+
+    local rail_planner = prototypes.item["rail"]
+    if not rail_planner or rail_planner.type ~= "rail-planner" then
+        return false, "This Factorio build does not provide the native 'rail' rail-planner item required for diagonal stacker geometry."
     end
 
     return true
@@ -141,15 +157,36 @@ end
 function Generator.create_entities(settings)
     if Common.is_item_station(settings) then return Normal.generate(settings) end
     if Common.is_fluid_station(settings) then return Fluid.generate(settings) end
-    if settings.station_type == "stacker" then return Stacker.generate(settings) end
+    if settings.station_type == "stacker" then
+        if settings.stacker_diagonal then return DiagonalStacker.generate(settings) end
+        return Stacker.generate(settings)
+    end
     return {}
+end
+
+local function compensate_native_parallel_signal_positions(settings, entities)
+    if settings.station_type ~= "stacker" or settings.stacker_diagonal then return entities end
+
+    -- Factorio 2.1 canonicalizes native rail entity positions by +1,+1 when
+    -- set_blueprint_entities() stores the blueprint, while rail signals keep the
+    -- exact supplied coordinates. Apply the same translation to parallel-stacker
+    -- signals first so the exported blueprint preserves their intended placement
+    -- relative to the rails.
+    for _, entity in ipairs(entities) do
+        if entity.name == "rail-signal" or entity.name == "rail-chain-signal" then
+            entity.position.x = entity.position.x + 1
+            entity.position.y = entity.position.y + 1
+        end
+    end
+
+    return entities
 end
 
 function Generator.generate_into_cursor(player, settings)
     local valid, error_message = Generator.validate_settings(settings)
     if not valid then return false, error_message end
 
-    local entities = Generator.create_entities(settings)
+    local entities = compensate_native_parallel_signal_positions(settings, Generator.create_entities(settings))
     if #entities == 0 then return false, "The selected settings produced an empty blueprint." end
 
     if not player.clear_cursor() then
@@ -163,7 +200,19 @@ function Generator.generate_into_cursor(player, settings)
         return false, "Could not create a blueprint in your cursor."
     end
 
+    local debug_enabled = settings.station_type == "stacker" and Debug.is_enabled(player.index)
+    if debug_enabled then
+        Debug.log_settings(settings)
+        Debug.log_snapshot("pre-set", entities)
+    end
+
     cursor.set_blueprint_entities(entities)
+
+    if debug_enabled then
+        local stored_entities = cursor.get_blueprint_entities() or {}
+        Debug.log_snapshot("post-set", stored_entities)
+        Debug.log_comparison("pre-set-vs-post-set", entities, stored_entities)
+    end
 
     local label
     if settings.station_type == "stacker" then
@@ -172,6 +221,10 @@ function Generator.generate_into_cursor(player, settings)
         label = settings.station_name ~= "" and settings.station_name or "Railwright Station"
     end
     cursor.label = label
+
+    if debug_enabled then
+        log("[Railwright][blueprint-debug][export] " .. cursor.export_stack())
+    end
 
     return true, #entities
 end

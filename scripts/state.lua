@@ -59,6 +59,11 @@ local default_settings = {
     stacker_type = "Left-Right",
 }
 
+local valid_stacker_types = {
+    ["Left-Right"] = true,
+    ["Right-Left"] = true,
+}
+
 local function deep_copy(value)
     if type(value) ~= "table" then return value end
 
@@ -80,6 +85,16 @@ local function merge_defaults(target, defaults)
     return target
 end
 
+local function normalize_settings(settings)
+    merge_defaults(settings, default_settings)
+
+    if not valid_stacker_types[settings.stacker_type] then
+        settings.stacker_type = "Left-Right"
+    end
+
+    return settings
+end
+
 function State.ensure_root()
     storage.players = storage.players or {}
 end
@@ -90,7 +105,7 @@ function State.ensure_player(player_index)
     if not storage.players[player_index] then
         storage.players[player_index] = deep_copy(default_settings)
     else
-        merge_defaults(storage.players[player_index], default_settings)
+        normalize_settings(storage.players[player_index])
     end
 
     return storage.players[player_index]
@@ -102,7 +117,7 @@ end
 
 function State.set_player(player_index, settings)
     State.ensure_root()
-    storage.players[player_index] = merge_defaults(settings, default_settings)
+    storage.players[player_index] = normalize_settings(settings)
 end
 
 function State.defaults()
