@@ -1,0 +1,83 @@
+name: Railwright test build
+
+on:
+  pull_request:
+    branches:
+      - modern-rails-0.3.0
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+
+      - name: Install Lua compiler
+        run: sudo apt-get update && sudo apt-get install -y lua5.4
+
+      - name: Validate Lua syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            echo "Checking $file"
+            luac -p "$file"
+          done < <(find . -type f -name '*.lua' -not -path './.git/*' -print0)
+
+      - name: Validate blueprint comparer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/compare_blueprints.py
+          cat > /tmp/railwright-left.json <<'JSON'
+          {
+            "blueprint": {
+              "entities": [
+                {"entity_number": 1, "name": "straight-rail", "position": {"x": 0, "y": 0}, "direction": 4},
+                {"entity_number": 2, "name": "rail-signal", "position": {"x": 2.5, "y": -0.5}, "direction": 5}
+              ]
+            }
+          }
+          JSON
+          cat > /tmp/railwright-right.json <<'JSON'
+          {
+            "blueprint": {
+              "entities": [
+                {"entity_number": 99, "name": "rail-signal", "position": {"x": 102.5, "y": 49.5}, "direction": 5},
+                {"entity_number": 42, "name": "straight-rail", "position": {"x": 100, "y": 50}, "direction": 4}
+              ]
+            }
+          }
+          JSON
+          python3 tools/compare_blueprints.py /tmp/railwright-left.json /tmp/railwright-right.json
+
+      - name: Package Factorio mod
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(python3 -c 'import json; print(json.load(open("info.json", encoding="utf-8"))["version"])')"
+          ROOT="railwright_${VERSION}"
+          mkdir -p "dist/${ROOT}"
+          rsync -a ./ "dist/${ROOT}/" \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude 'dist/' \
+            --exclude 'tools/' \
+            --exclude '__pycache__/' \
+            --exclude '*.pyc'
+          (cd dist && zip -qr "${ROOT}.zip" "${ROOT}")
+          echo "artifact_path=dist/${ROOT}.zip" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=${ROOT}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.artifact_name }}
+          path: ${{ steps.package.outputs.artifact_path }}
+          if-no-files-found: error
+          retention-days: 14
