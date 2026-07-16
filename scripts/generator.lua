@@ -1,5 +1,6 @@
 local Common = require("scripts.generator_common")
 local Debug = require("scripts.generator_debug")
+local DiagonalStacker = require("scripts.generator_stacker_diagonal")
 local Fluid = require("scripts.generator_fluid")
 local Normal = require("scripts.generator_normal")
 local Stacker = require("scripts.generator_stacker")
@@ -125,6 +126,7 @@ local function validate_stacker(settings)
         "straight-rail",
         "curved-rail-a",
         "curved-rail-b",
+        "half-diagonal-rail",
     }
 
     for _, rail_name in ipairs(modern_rails) do
@@ -133,12 +135,9 @@ local function validate_stacker(settings)
         end
     end
 
-    -- The parallel stacker is fully native. The diagonal template remains on
-    -- compatibility rails only while its separate 2.1 geometry is rebuilt.
-    if settings.stacker_diagonal then
-        if not prototypes.entity["legacy-straight-rail"] or not prototypes.entity["legacy-curved-rail"] then
-            return false, "The current diagonal stacker transition is still being migrated and needs compatibility rail prototypes."
-        end
+    local rail_planner = prototypes.item["rail"]
+    if not rail_planner or rail_planner.type ~= "rail-planner" then
+        return false, "This Factorio build does not provide the native 'rail' rail-planner item required for diagonal stacker geometry."
     end
 
     return true
@@ -158,7 +157,10 @@ end
 function Generator.create_entities(settings)
     if Common.is_item_station(settings) then return Normal.generate(settings) end
     if Common.is_fluid_station(settings) then return Fluid.generate(settings) end
-    if settings.station_type == "stacker" then return Stacker.generate(settings) end
+    if settings.station_type == "stacker" then
+        if settings.stacker_diagonal then return DiagonalStacker.generate(settings) end
+        return Stacker.generate(settings)
+    end
     return {}
 end
 
