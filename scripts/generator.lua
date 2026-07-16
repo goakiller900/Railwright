@@ -1,5 +1,6 @@
 local Common = require("scripts.generator_common")
 local Debug = require("scripts.generator_debug")
+local DiagonalStacker = require("scripts.generator_stacker_diagonal")
 local Fluid = require("scripts.generator_fluid")
 local Normal = require("scripts.generator_normal")
 local Stacker = require("scripts.generator_stacker")
@@ -127,9 +128,20 @@ local function validate_stacker(settings)
         "curved-rail-b",
     }
 
+    if settings.stacker_diagonal then
+        modern_rails[#modern_rails + 1] = "half-diagonal-rail"
+    end
+
     for _, rail_name in ipairs(modern_rails) do
         if not prototypes.entity[rail_name] then
             return false, "This Factorio build does not provide the native rail prototype '" .. rail_name .. "'."
+        end
+    end
+
+    if settings.stacker_diagonal then
+        local rail_planner = prototypes.item["rail"]
+        if not rail_planner or rail_planner.type ~= "rail-planner" then
+            return false, "This Factorio build does not provide the native 'rail' rail-planner item required for this stacker geometry."
         end
     end
 
@@ -147,13 +159,12 @@ function Generator.validate_settings(settings)
     return false, "Unknown station type: " .. tostring(settings.station_type)
 end
 
-local function parallel_stacker_settings(settings)
+local function stacker_generation_settings(settings)
     local result = {}
     for key, value in pairs(settings) do result[key] = value end
 
-    -- Stackers use only the selected train length as a sizing reference. Station
+    -- Stackers use the selected train length only as a sizing reference. Station
     -- options that place or alter an actual train are intentionally ignored.
-    result.stacker_diagonal = false
     result.double_headed = false
     result.include_train = false
 
@@ -163,17 +174,22 @@ end
 function Generator.create_entities(settings)
     if Common.is_item_station(settings) then return Normal.generate(settings) end
     if Common.is_fluid_station(settings) then return Fluid.generate(settings) end
-    if settings.station_type == "stacker" then return Stacker.generate(parallel_stacker_settings(settings)) end
+    if settings.station_type == "stacker" then
+        local stacker_settings = stacker_generation_settings(settings)
+        if stacker_settings.stacker_diagonal then return DiagonalStacker.generate(stacker_settings) end
+        return Stacker.generate(stacker_settings)
+    end
     return {}
 end
 
 local function compensate_native_parallel_signal_positions(settings, entities)
-    if settings.station_type ~= "stacker" then return entities end
+    if settings.station_type ~= "stacker" or settings.stacker_diagonal then return entities end
 
     -- Factorio 2.1 canonicalizes native rail entity positions by +1,+1 when
     -- set_blueprint_entities() stores the blueprint, while rail signals keep the
-    -- exact supplied coordinates. Apply the same translation to stacker signals
-    -- first so the exported blueprint preserves their intended placement.
+    -- exact supplied coordinates. Apply the same translation to parallel-stacker
+    -- signals first so the exported blueprint preserves their intended placement
+    -- relative to the rails.
     for _, entity in ipairs(entities) do
         if entity.name == "rail-signal" or entity.name == "rail-chain-signal" then
             entity.position.x = entity.position.x + 1
