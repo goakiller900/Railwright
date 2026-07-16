@@ -1,7 +1,14 @@
+-- Builds the runtime configuration window and converts its controls back into a
+-- validated settings-shaped table. Geometry generation never depends on GUI nodes.
 local Constants = require("scripts.constants")
 local State = require("scripts.state")
 
 local Gui = {}
+
+local function diagonal_setting_enabled(player)
+    local setting = player.mod_settings[Constants.settings.enable_experimental_diagonal]
+    return setting ~= nil and setting.value == true
+end
 
 local function find_index(values, selected, fallback)
     for index, value in ipairs(values) do
@@ -11,6 +18,7 @@ local function find_index(values, selected, fallback)
 end
 
 local function find_element(root, name)
+    -- Controls are nested in sections/tables, so readers resolve them recursively.
     if not root or not root.valid then return nil end
     if root.name == name then return root end
 
@@ -103,25 +111,13 @@ local function dropdown(table_element, caption, name, items, selected_index)
     })
 end
 
-function Gui.ensure_button(player)
-    local top = player.gui.top
-    if top[Constants.gui.top_button] then return end
-
-    top.add({
-        type = "sprite-button",
-        name = Constants.gui.top_button,
-        sprite = "item/blueprint",
-        style = "slot_button",
-        tooltip = { "railwright.open-tooltip" },
-    })
-end
-
 function Gui.close(player)
     local frame = player.gui.screen[Constants.gui.frame]
     if frame then frame.destroy() end
 end
 
 function Gui.update_visibility(player)
+    -- Only the controls relevant to the selected station family remain visible.
     local frame = player.gui.screen[Constants.gui.frame]
     if not frame then return end
 
@@ -307,6 +303,14 @@ function Gui.open(player)
     textfield(stacker, { "railwright.stacker-lanes" }, Constants.gui.stacker_lanes, settings.stacker_lanes, true)
     dropdown(stacker, { "railwright.stacker-type" }, Constants.gui.stacker_type, Constants.stacker_types,
         find_index(Constants.stacker_types, settings.stacker_type))
+    if diagonal_setting_enabled(player) then
+        checkbox(
+            stacker,
+            { "railwright.stacker-diagonal-experimental" },
+            Constants.gui.stacker_diagonal,
+            settings.stacker_diagonal
+        )
+    end
 
     local generate = frame.add({
         type = "button",
@@ -334,6 +338,8 @@ local function parse_integer(element, label, minimum)
 end
 
 function Gui.read_settings(player)
+    -- Parse all primitive values here; prototype/type validation happens later in
+    -- generator.lua where it can also protect non-GUI callers.
     local frame = player.gui.screen[Constants.gui.frame]
     if not frame then return nil, "Railwright window is not open." end
 
@@ -437,7 +443,9 @@ function Gui.read_settings(player)
         lamps = get(Constants.gui.lamps).state,
 
         stacker_lanes = stacker_lanes,
-        stacker_diagonal = false,
+        stacker_diagonal = diagonal_setting_enabled(player)
+            and get(Constants.gui.stacker_diagonal).state
+            or false,
         stacker_type = Constants.stacker_types[get(Constants.gui.stacker_type).selected_index] or "Left-Right",
     }
 end

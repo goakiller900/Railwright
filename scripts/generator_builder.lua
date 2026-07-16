@@ -1,3 +1,5 @@
+-- Minimal BlueprintEntity builder. It assigns stable entity numbers, deep-copies
+-- option tables, and emits Factorio 2.1's four-number BlueprintWire records.
 local Builder = {}
 Builder.__index = Builder
 
@@ -18,6 +20,7 @@ function Builder.new()
 end
 
 function Builder:add(name, x, y, options)
+    -- Entity numbers are assigned in insertion order and are referenced by wires.
     local entity = {
         entity_number = #self.entities + 1,
         name = name,
@@ -34,22 +37,9 @@ function Builder:add(name, x, y, options)
     return entity
 end
 
-function Builder:copy_entity(entity, x_offset, y_offset)
-    local options = deep_copy(entity)
-    options.entity_number = nil
-    options.name = nil
-    options.position = nil
-    options.wires = nil
-
-    return self:add(
-        entity.name,
-        entity.position.x + (x_offset or 0),
-        entity.position.y + (y_offset or 0),
-        options
-    )
-end
-
 local function connector_id(color, side)
+    -- Combinators have distinct input/output connectors; ordinary entities use
+    -- their red or green circuit connector.
     if side == "input" then
         return color == "red"
             and defines.wire_connector_id.combinator_input_red
@@ -85,19 +75,6 @@ function Builder:connect_chain(entities, color)
     for index = 2, #entities do
         self:connect(entities[index - 1], entities[index], color)
     end
-end
-
-function Builder:append_template(template, x_offset, y_offset)
-    local created = {}
-    for _, entity in ipairs(template) do
-        created[#created + 1] = self:add(
-            entity.name,
-            entity.position.x + (x_offset or 0),
-            entity.position.y + (y_offset or 0),
-            entity.options
-        )
-    end
-    return created
 end
 
 function Builder.deep_copy(value)

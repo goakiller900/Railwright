@@ -1,3 +1,5 @@
+-- Public generation coordinator: validates settings, dispatches to the correct
+-- geometry module, and writes the resulting entities into a cursor blueprint.
 local Common = require("scripts.generator_common")
 local Debug = require("scripts.generator_debug")
 local DiagonalStacker = require("scripts.generator_stacker_diagonal")
@@ -6,6 +8,30 @@ local Normal = require("scripts.generator_normal")
 local Stacker = require("scripts.generator_stacker")
 
 local Generator = {}
+
+-- Copy user settings before attaching runtime-only values that must never be
+-- persisted in State storage.
+local function generation_settings_for_player(player, settings, debug_enabled)
+    local result = {}
+    for key, value in pairs(settings) do result[key] = value end
+
+    local inserter = prototypes.entity[settings.inserter_name or ""]
+    if inserter and inserter.type == "inserter" then
+        local capacity = 1 + (inserter.inserter_stack_size_bonus or 0)
+        if inserter.uses_inserter_stack_size_bonus ~= false then
+            capacity = capacity + (inserter.bulk
+                and player.force.bulk_inserter_capacity_bonus
+                or player.force.inserter_stack_size_bonus)
+        end
+        result._inserter_stack_size = math.max(1, math.floor(capacity))
+    end
+
+    if settings.stacker_diagonal and debug_enabled then
+        result._diagonal_debug_enabled = true
+    end
+
+    return result
+end
 
 local function validate_entity(name, allowed_types, description)
     if not name or name == "" then
@@ -172,6 +198,8 @@ local function stacker_generation_settings(settings)
 end
 
 function Generator.create_entities(settings)
+    -- Keep each station family isolated so geometry changes do not leak between
+    -- item, fluid, parallel stacker, and experimental diagonal implementations.
     if Common.is_item_station(settings) then return Normal.generate(settings) end
     if Common.is_fluid_station(settings) then return Fluid.generate(settings) end
     if settings.station_type == "stacker" then
@@ -204,7 +232,10 @@ function Generator.generate_into_cursor(player, settings)
     local valid, error_message = Generator.validate_settings(settings)
     if not valid then return false, error_message end
 
-    local entities = compensate_native_parallel_signal_positions(settings, Generator.create_entities(settings))
+    local debug_enabled = settings.station_type == "stacker" and Debug.is_enabled(player.index)
+    local generation_settings = generation_settings_for_player(player, settings, debug_enabled)
+
+    local entities = compensate_native_parallel_signal_positions(settings, Generator.create_entities(generation_settings))
     if #entities == 0 then return false, "The selected settings produced an empty blueprint." end
 
     if not player.clear_cursor() then
@@ -218,7 +249,6 @@ function Generator.generate_into_cursor(player, settings)
         return false, "Could not create a blueprint in your cursor."
     end
 
-    local debug_enabled = settings.station_type == "stacker" and Debug.is_enabled(player.index)
     if debug_enabled then
         Debug.log_settings(settings)
         Debug.log_snapshot("pre-set", entities)

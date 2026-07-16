@@ -1,5 +1,11 @@
+-- Shared stable identifiers and display-to-storage option mappings. Keeping GUI
+-- names here prevents event handlers and readers from silently drifting apart.
 local Constants = {
     mod_name = "railwright",
+
+    settings = {
+        enable_experimental_diagonal = "railwright-enable-experimental-diagonal",
+    },
 
     gui = {
         top_button = "railwright_top_button",

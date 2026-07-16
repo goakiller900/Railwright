@@ -1,3 +1,5 @@
+-- Runtime entry point: owns Factorio event/command registration and coordinates
+-- state, GUI input, validation, and blueprint generation.
 local Constants = require("scripts.constants")
 local Debug = require("scripts.generator_debug")
 local Generator = require("scripts.generator")
@@ -6,9 +8,9 @@ local State = require("scripts.state")
 
 local SHORTCUT_NAME = "railwright-open"
 local DEBUG_COMMAND = "railwright-debug-stackers"
-local EXPERIMENTAL_DIAGONAL_COMMAND = "railwright-experimental-diagonal"
 
 local function setup_player(player)
+    -- Ensure migration-friendly defaults exist before this player opens the UI.
     State.ensure_player(player.index)
 
     -- Remove the legacy 0.1.x/0.2.1 top-GUI launcher when upgrading an existing save.
@@ -37,23 +39,6 @@ commands.add_command(DEBUG_COMMAND, "Toggle Railwright stacker blueprint diagnos
         player.print({ "", "[Railwright] Stacker blueprint diagnostics enabled. Generate a stacker, then check factorio-current.log." })
     else
         player.print({ "", "[Railwright] Stacker blueprint diagnostics disabled." })
-    end
-end)
-
-commands.add_command(EXPERIMENTAL_DIAGONAL_COMMAND, "Toggle an experimental Railwright stacker mode.", function(command)
-    if not command.player_index then
-        log("[Railwright] /" .. EXPERIMENTAL_DIAGONAL_COMMAND .. " can only be used by a player.")
-        return
-    end
-
-    local player = game.get_player(command.player_index)
-    if not player then return end
-
-    local enabled = State.toggle_experimental_diagonal(player.index)
-    if enabled then
-        player.print({ "", "[Railwright] Experimental stacker mode enabled for this player." })
-    else
-        player.print({ "", "[Railwright] Experimental stacker mode disabled for this player." })
     end
 end)
 
@@ -100,10 +85,8 @@ script.on_event(defines.events.on_gui_click, function(event)
         return
     end
 
-    if settings.station_type == "stacker" then
-        settings.stacker_diagonal = State.is_experimental_diagonal_enabled(player.index)
-    end
-
+    -- Geometry can involve modded prototypes and native rail planning, so keep
+    -- unexpected generator failures contained to a readable player message.
     local call_ok, generated, result = pcall(Generator.generate_into_cursor, player, settings)
     if not call_ok then
         player.print({ "", "[Railwright] Unexpected error: ", generated })
@@ -126,4 +109,11 @@ script.on_event(defines.events.on_gui_closed, function(event)
 
     local frame = player.gui.screen[Constants.gui.frame]
     if frame and event.element == frame then Gui.close(player) end
+end)
+
+script.on_event(defines.events.on_runtime_mod_setting_changed, function(event)
+    if event.setting ~= Constants.settings.enable_experimental_diagonal or not event.player_index then return end
+
+    local player = game.get_player(event.player_index)
+    if player then Gui.close(player) end
 end)

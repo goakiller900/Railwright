@@ -1,4 +1,8 @@
+-- Experimental native diagonal stacker generator. It asks Factorio's own rail
+-- planner to create one lane template on a temporary lab-tile surface, records
+-- canonical rail/signal locations, then offsets that template for every lane.
 local Builder = require("scripts.generator_builder")
+local Debug = require("scripts.generator_debug")
 
 local DiagonalStacker = {}
 
@@ -20,22 +24,16 @@ local function normalize_stacker_type(stacker_type)
     return stacker_type == "Right-Left" and "Right-Left" or "Left-Right"
 end
 
-local function diagonal_straight_steps(settings, stacker_type)
-    local double_factor = settings.double_headed and 2 or 1
-    local legacy_length = rounded((2.5 * (double_factor * settings.locomotives + settings.cargo_wagons)) / 2) * 2 + 1
-    local train_steps = math.max(2, legacy_length - 2)
+local function diagonal_straight_steps(settings)
+    -- Stackers use the selected locomotive/wagon count only as a length guide;
+    -- Generator deliberately disables double-headed train placement for them.
+    local legacy_length = rounded((2.5 * (settings.locomotives + settings.cargo_wagons)) / 2) * 2 + 1
+    local train_steps = math.max(2, legacy_length)
 
-    -- The 1-4 / 3-lane manual references need 11 native diagonal straights.
-    -- Left-Right can remain compact as lanes are added, but it still needs enough
-    -- diagonal signal positions to stagger one chain signal per lane.
-    if stacker_type == "Left-Right" then
-        return math.max(train_steps, settings.stacker_lanes + 1)
-    end
-
-    -- Right-Left expands along the vertical fan axis. With more than three lanes,
-    -- an 11-rail middle section lets the two fan regions run into each other.
-    -- Every extra 4-tile lane therefore needs two extra diagonal rail steps.
-    local fan_clearance_steps = settings.stacker_lanes * 2 + 5
+    -- A 1-4 train needs 13 native diagonal straights to clear both fan curves.
+    -- Four steps beyond the lane count preserve usable holding length as either
+    -- fan widens; both orientations were validated with the same rule.
+    local fan_clearance_steps = settings.stacker_lanes + 4
     return math.max(train_steps, fan_clearance_steps)
 end
 
@@ -93,6 +91,10 @@ local function connection_direction(turn)
 end
 
 local function choose_extension(rail_end, turn)
+    -- Select the smallest signed heading change matching left/straight/right.
+    -- Keep Factorio's first equal-angle candidate: rail extensions can share a
+    -- heading while targeting different rail layers, and re-sorting those ties
+    -- can accidentally select elevated geometry.
     local current_direction = rail_end.location.direction
     local selected
     local selected_delta
@@ -128,26 +130,32 @@ local function prepare_chunk(surface, prepared_chunks, chunk_x, chunk_y)
     local key = chunk_key(chunk_x, chunk_y)
     if prepared_chunks[key] then return end
 
+    local requested = false
     if not surface.is_chunk_generated({ x = chunk_x, y = chunk_y }) then
         surface.request_to_generate_chunks({
             x = chunk_x * 32 + 16,
             y = chunk_y * 32 + 16,
         }, 0)
-        surface.force_generate_chunk_requests()
+        requested = true
     end
 
     prepared_chunks[key] = true
+    return requested
 end
 
 local function prepare_position(surface, prepared_chunks, position)
     local chunk_x = math.floor(position.x / 32)
     local chunk_y = math.floor(position.y / 32)
 
+    local requested = false
     for x = chunk_x - 1, chunk_x + 1 do
         for y = chunk_y - 1, chunk_y + 1 do
-            prepare_chunk(surface, prepared_chunks, x, y)
+            requested = prepare_chunk(surface, prepared_chunks, x, y) or requested
         end
     end
+
+    -- Generate the entire requested 3x3 neighborhood in one blocking call.
+    if requested then surface.force_generate_chunk_requests() end
 end
 
 local function find_end_facing(rail, wanted_direction)
@@ -211,7 +219,9 @@ local function create_geometry_surface()
     return surface
 end
 
-local function build_lane_template(settings, heading, first_turn, stacker_type)
+local function build_lane_template(settings, heading, first_turn)
+    -- Temporary entities are necessary because modern 2.1 curve/diagonal snapping
+    -- is defined by the active rail planner rather than simple coordinate math.
     local surface = create_geometry_surface()
     local prepared_chunks = {}
 
@@ -232,7 +242,7 @@ local function build_lane_template(settings, heading, first_turn, stacker_type)
         local rail_entities = { entity_descriptor(seed) }
         local forward = find_end_facing(seed, heading)
         local entrance_end = find_end_facing(seed, modulo(heading + 8, 16))
-        local entrance_signal = copy_location(entrance_end.in_signal_location)
+        local entrance_signal = copy_location(entrance_end.out_signal_location)
 
         for _ = 2, TRUNK_STRAIGHTS do
             extend(surface, prepared_chunks, forward, 0, rail_entities)
@@ -243,19 +253,15 @@ local function build_lane_template(settings, heading, first_turn, stacker_type)
         end
 
         local diagonal_in_signal_points = {}
-        local diagonal_out_signal_points = {}
-        local straight_steps = diagonal_straight_steps(settings, stacker_type)
+        local straight_steps = diagonal_straight_steps(settings)
 
         for step = 1, straight_steps do
             extend(surface, prepared_chunks, forward, 0, rail_entities)
             diagonal_in_signal_points[step] = copy_location(forward.in_signal_location)
-            diagonal_out_signal_points[step] = copy_location(forward.out_signal_location)
         end
 
-        local first_exit_signal
-        for step = 1, CURVE_STEPS do
+        for _ = 1, CURVE_STEPS do
             extend(surface, prepared_chunks, forward, -first_turn, rail_entities)
-            if step == 1 then first_exit_signal = copy_location(forward.in_signal_location) end
         end
 
         for _ = 1, TRUNK_STRAIGHTS do
@@ -265,10 +271,8 @@ local function build_lane_template(settings, heading, first_turn, stacker_type)
         return {
             rails = rail_entities,
             entrance_signal = entrance_signal,
-            exit_signal = copy_location(forward.out_signal_location),
+            exit_signal = copy_location(forward.in_signal_location),
             diagonal_in_signal_points = diagonal_in_signal_points,
-            diagonal_out_signal_points = diagonal_out_signal_points,
-            first_exit_signal = first_exit_signal,
         }
     end)
 
@@ -278,47 +282,68 @@ local function build_lane_template(settings, heading, first_turn, stacker_type)
     return result
 end
 
-local function add_signal(add, name, location, x_offset, y_offset)
+local function add_signal(add, name, location, x_offset, y_offset, diagnostic)
     -- These locations come from real rail entities on the temporary geometry
     -- surface and are already in Factorio's canonical native-rail coordinate
     -- system. Unlike the hand-authored parallel layout, they need no +1,+1 shift.
+    local x = location.position.x + (x_offset or 0)
+    local y = location.position.y + (y_offset or 0)
     add(
         name,
-        location.position.x + (x_offset or 0),
-        location.position.y + (y_offset or 0),
+        x,
+        y,
         { direction = location.direction }
     )
+
+    if diagnostic and diagnostic.enabled then
+        Debug.log_diagonal_signal({
+            lane = diagnostic.lane,
+            lane_number = diagnostic.lane == nil and nil or diagnostic.lane + 1,
+            signal_type = name,
+            role = diagnostic.role,
+            source = diagnostic.source,
+            source_index = diagnostic.source_index,
+            source_position = copy_position(location.position),
+            final_position = { x = x, y = y },
+            direction = location.direction,
+        })
+    end
 end
 
-local function append_lane(add, template, lane, lane_count, x_offset, y_offset)
+local function append_lane(add, template, lane, x_offset, y_offset, debug_enabled)
     for _, rail in ipairs(template.rails) do
         add(rail.name, rail.position.x + x_offset, rail.position.y + y_offset, {
             direction = rail.direction,
         })
     end
 
-    local entry_index = math.min(
-        #template.diagonal_in_signal_points,
-        math.max(1, lane_count - lane)
-    )
+    local entry_index = 1
 
     add_signal(
         add,
         "rail-chain-signal",
         template.diagonal_in_signal_points[entry_index],
         x_offset,
-        y_offset
+        y_offset,
+        {
+            enabled = debug_enabled,
+            lane = lane,
+            role = "lane entry",
+            source = "diagonal_in_signal_points",
+            source_index = entry_index,
+        }
     )
 
-    local exit_location
-    if lane == 0 then
-        exit_location = template.first_exit_signal
-    else
-        local exit_index = math.max(1, #template.diagonal_out_signal_points - lane + 1)
-        exit_location = template.diagonal_out_signal_points[exit_index]
-    end
+    local exit_index = #template.diagonal_in_signal_points
+    local exit_location = template.diagonal_in_signal_points[exit_index]
 
-    add_signal(add, "rail-signal", exit_location, x_offset, y_offset)
+    add_signal(add, "rail-signal", exit_location, x_offset, y_offset, {
+        enabled = debug_enabled,
+        lane = lane,
+        role = "lane exit",
+        source = "diagonal_in_signal_points",
+        source_index = exit_index,
+    })
 end
 
 function DiagonalStacker.generate(settings)
@@ -343,20 +368,25 @@ function DiagonalStacker.generate(settings)
         lane_step_y = LANE_SPACING
     end
 
-    local template = build_lane_template(settings, heading, first_turn, stacker_type)
+    local template = build_lane_template(settings, heading, first_turn)
 
     for lane = 0, settings.stacker_lanes - 1 do
         append_lane(
             add,
             template,
             lane,
-            settings.stacker_lanes,
             lane * lane_step_x,
-            lane * lane_step_y
+            lane * lane_step_y,
+            settings._diagonal_debug_enabled
         )
     end
 
-    add_signal(add, "rail-chain-signal", template.entrance_signal, 0, 0)
+    add_signal(add, "rail-chain-signal", template.entrance_signal, 0, 0, {
+        enabled = settings._diagonal_debug_enabled,
+        lane = 0,
+        role = "entrance",
+        source = "entrance_signal",
+    })
 
     local last_lane = settings.stacker_lanes - 1
     add_signal(
@@ -364,7 +394,13 @@ function DiagonalStacker.generate(settings)
         "rail-chain-signal",
         template.exit_signal,
         last_lane * lane_step_x,
-        last_lane * lane_step_y
+        last_lane * lane_step_y,
+        {
+            enabled = settings._diagonal_debug_enabled,
+            lane = last_lane,
+            role = "outer exit",
+            source = "exit_signal",
+        }
     )
 
     return builder.entities

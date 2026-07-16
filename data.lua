@@ -1,3 +1,5 @@
+-- Data-stage entry point: registers the shortcut-bar prototype. Runtime click
+-- handling lives in control.lua because shortcuts cannot execute generators here.
 data:extend({
     {
         type = "shortcut",

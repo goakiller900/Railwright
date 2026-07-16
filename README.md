@@ -11,9 +11,9 @@ Railwright is an in-game train station blueprint generator for Factorio 2.1.
 
 The project is a modern successor inspired by BurnySc2's original **Train Station Blueprint Creator** (`BurnysTSBC`) and the later web-based Train Station Blueprint Creator. Railwright is a new implementation designed around the current Factorio runtime API and the prototypes that are actually available in the player's mod set.
 
-## Current status — 0.3.3
+## Current status — 0.3.5
 
-Railwright 0.3.3 focuses the stacker generator on the two parallel layouts that are confirmed working with Factorio 2.1 native rails: **Left-Right** and **Right-Left**. The unreliable diagonal stacker option has been temporarily removed, and the stacker menu now hides station-only settings that do not apply to stacker blueprints.
+Railwright 0.3.5 keeps the confirmed **Left-Right** and **Right-Left** parallel layouts unchanged and restores native Factorio 2.1 diagonal stacker generation as an experimental feature. The diagonal option is shown by default, and a per-player mod setting can hide it from the stacker menu.
 
 ### Station types
 
@@ -22,6 +22,7 @@ Railwright 0.3.3 focuses the stacker generator on the two parallel layouts that 
 - Fluid loading stations.
 - Fluid unloading stations.
 - Parallel stackers with Left-Right and Right-Left layouts.
+- Experimental diagonal stackers with Left-Right and Right-Left layouts.
 
 ### Train and layout settings
 
@@ -64,15 +65,15 @@ See [`changelog.txt`](changelog.txt) for version history and [`ROADMAP.md`](ROAD
 
 ## Diagonal stackers
 
-Starting with **0.3.3**, diagonal stacker generation is temporarily unavailable. The experimental Factorio 2.1 version was not reliable enough to ship consistently, especially when lane count, train length, and signal placement changed.
+Starting with **0.3.5**, the Railwright stacker menu shows a **Diagonal stacker (experimental)** checkbox by default. To hide it, open **Settings > Mod settings > Per player** and disable **Show experimental diagonal stacker option**.
 
-If you have a reliable approach for generating diagonal stackers with modern Factorio 2.1 rails, contributions are very welcome. Please open a pull request with your implementation or a reproducible working layout that can be used as a reference.
+The generator constructs its geometry on a temporary Factorio surface through the native rail-planner API, then uses the signal locations reported by the generated rail ends. In-game testing has covered both directions with short, standard, long, and ten-lane configurations, but broader testing is still needed before the experimental label is removed.
 
 ## Known limitations
 
 Railwright is still under active development and the generator has many possible setting combinations.
 
-- Diagonal stackers are temporarily unavailable while a reliable Factorio 2.1 implementation is worked out.
+- Diagonal stackers remain experimental and may still expose edge cases with unusual train sizes, lane counts, or modded rail prototypes.
 - The automatic dynamic train-limit behavior is available, but the web generator's advanced custom arithmetic formula controls are not exposed yet.
 - Unusual modded prototypes may still need additional capability detection even when they appear in a runtime picker.
 - Broad testing across overhaul mod packs is ongoing.
@@ -88,7 +89,7 @@ railwright
 or with the version suffix:
 
 ```text
-railwright_0.3.3
+railwright_0.3.5
 ```
 
 Start Factorio 2.1 and enable **Railwright** in the mod manager.
@@ -125,6 +126,12 @@ For local packaging, run:
 python tools/package_mod.py
 ```
 
+On Windows, the equivalent native PowerShell build also creates a separate debug-command reference:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
+```
+
 To validate the release artwork locally:
 
 ```text
@@ -134,7 +141,7 @@ python tools/validate_png.py thumbnail.png graphics/railwright-shortcut-x56.png
 To preview the GitHub release notes generated from a changelog entry:
 
 ```text
-python tools/release_notes.py 0.3.3
+python tools/release_notes.py 0.3.5
 ```
 
 ## Usage
@@ -173,6 +180,9 @@ scripts/generator_common.lua        Shared train and station behavior logic
 scripts/generator_normal.lua        Item loading/unloading generation
 scripts/generator_fluid.lua         Fluid loading/unloading generation
 scripts/generator_stacker.lua       Parallel stacker generation
+scripts/generator_stacker_diagonal.lua Experimental native diagonal stacker generation
+settings.lua                        Per-player mod settings
+build.ps1                           Native PowerShell local packager
 tools/package_mod.py                Local/CI Factorio ZIP packager
 tools/release_notes.py              Changelog-to-GitHub release note generator
 tools/validate_png.py               PNG structure and release-art validation

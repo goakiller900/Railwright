@@ -1,3 +1,5 @@
+-- Persistent per-player configuration and lightweight save migration helpers.
+-- New settings belong in default_settings so older saves receive them on access.
 local State = {}
 
 local function make_request_items()
@@ -75,6 +77,7 @@ local function deep_copy(value)
 end
 
 local function merge_defaults(target, defaults)
+    -- Recursively add missing keys without overwriting a player's saved choices.
     for key, value in pairs(defaults) do
         if target[key] == nil then
             target[key] = deep_copy(value)
@@ -92,15 +95,13 @@ local function normalize_settings(settings)
         settings.stacker_type = "Left-Right"
     end
 
-    -- The normal interface only exposes the supported parallel stackers.
-    settings.stacker_diagonal = false
-
     return settings
 end
 
 function State.ensure_root()
     storage.players = storage.players or {}
-    storage.experimental_diagonal_players = storage.experimental_diagonal_players or {}
+    -- Remove state written by the pre-0.3.5 hidden diagonal console toggle.
+    storage.experimental_diagonal_players = nil
 end
 
 function State.ensure_player(player_index)
@@ -122,18 +123,6 @@ end
 function State.set_player(player_index, settings)
     State.ensure_root()
     storage.players[player_index] = normalize_settings(settings)
-end
-
-function State.is_experimental_diagonal_enabled(player_index)
-    State.ensure_root()
-    return storage.experimental_diagonal_players[player_index] == true
-end
-
-function State.toggle_experimental_diagonal(player_index)
-    State.ensure_root()
-    local enabled = not State.is_experimental_diagonal_enabled(player_index)
-    storage.experimental_diagonal_players[player_index] = enabled or nil
-    return enabled
 end
 
 function State.defaults()

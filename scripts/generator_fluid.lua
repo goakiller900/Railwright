@@ -1,3 +1,5 @@
+-- Generates fluid loading/unloading stations with pumps, alternating tank rows,
+-- optional inter-row pipes, circuit wiring, and shared station behaviors.
 local Builder = require("scripts.generator_builder")
 local Common = require("scripts.generator_common")
 
@@ -29,6 +31,7 @@ local function side_direction(settings, direction, tank)
 end
 
 local function serpentine_tanks(rows)
+    -- Alternating row order creates a short continuous circuit-wire chain.
     local ordered = {}
 
     for row_index, row in ipairs(rows) do

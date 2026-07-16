@@ -1,11 +1,22 @@
+-- Shared station primitives: train geometry, rails/stops, refuelling, logistic
+-- requests, and circuit-driven station behavior used by item and fluid stations.
 local Common = {}
+
+local function prototype_inventory_size(name, inventory, fallback)
+    local prototype = prototypes.entity[name]
+    if not prototype then return fallback end
+    return prototype.get_inventory_size(inventory) or fallback
+end
+
+local function prototype_fluid_capacity(name, fallback)
+    local prototype = prototypes.entity[name]
+    if not prototype then return fallback end
+    local capacity = prototype.get_fluid_capacity()
+    return capacity > 0 and capacity or fallback
+end
 
 local function signal(name)
     return { type = "virtual", name = name }
-end
-
-local function item_signal(name)
-    return { type = "item", name = name }
 end
 
 function Common.is_item_station(settings)
@@ -23,18 +34,6 @@ end
 
 function Common.train_length(settings)
     return Common.total_cars(settings) * 7
-end
-
-function Common.cargo_indices(settings)
-    local result = {}
-    local first = settings.locomotives * 7 - 3
-    local last_exclusive = (settings.locomotives + settings.cargo_wagons) * 7 - 2
-
-    for index = first, last_exclusive - 1 do
-        result[#result + 1] = index
-    end
-
-    return result
 end
 
 function Common.front_locomotive_indices(settings)
@@ -187,15 +186,20 @@ function Common.add_refuel(builder, settings)
 end
 
 local function dynamic_train_limit_values(settings, connected_storage_count, total_storage_count, storage_slots, fluid)
+    -- Convert connected storage capacity into whole train loads. Prototype-backed
+    -- capacities keep this calculation correct for compatible modded containers.
     local train_capacity
     local storage_capacity
 
     if fluid then
-        train_capacity = settings.cargo_wagons * 25000
-        storage_capacity = connected_storage_count * 25000
+        local wagon_capacity = prototype_fluid_capacity("fluid-wagon", 25000)
+        local tank_capacity = prototype_fluid_capacity(settings.storage_tank_name, 25000)
+        train_capacity = settings.cargo_wagons * wagon_capacity
+        storage_capacity = connected_storage_count * tank_capacity
     else
         local connected_fraction = total_storage_count > 0 and connected_storage_count / total_storage_count or 1
-        train_capacity = settings.cargo_wagons * 40 * settings.train_limit_stack_size * connected_fraction
+        local wagon_slots = prototype_inventory_size("cargo-wagon", defines.inventory.cargo_wagon, 40)
+        train_capacity = settings.cargo_wagons * wagon_slots * settings.train_limit_stack_size * connected_fraction
         storage_capacity = connected_storage_count * storage_slots * settings.train_limit_stack_size
     end
 
@@ -281,10 +285,6 @@ function Common.add_station_behaviors(builder, settings, source_entity, train_st
         builder:connect(first, second, "green", "output", "input")
         builder:connect(second, train_stop, "green", "output", "circuit")
     end
-end
-
-function Common.item_signal(name)
-    return item_signal(name)
 end
 
 return Common

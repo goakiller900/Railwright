@@ -1,3 +1,5 @@
+-- Generates cargo loading/unloading stations. The right side is authored once;
+-- coordinate/direction mirroring produces the optional left side.
 local Builder = require("scripts.generator_builder")
 local Common = require("scripts.generator_common")
 
@@ -157,13 +159,15 @@ local function add_vertical_belts(builder, settings, splitters, right_side)
     end
 end
 
-local function inserter_stack_size(name)
-    if name == "bulk-inserter" then return 12 end
-    if name == "stack-inserter" then return 16 end
-    return 3
+local function inserter_stack_size(settings)
+    -- Generator.generate_into_cursor calculates this from the selected inserter
+    -- prototype and the generating player's force bonuses.
+    return settings._inserter_stack_size or 1
 end
 
 local function add_madzuri(builder, settings, chests, inserters, right_side)
+    -- Madzuri balancing compares each chest with the side average and enables its
+    -- outer inserter only when moving items helps restore that balance.
     if not settings.madzuri or #chests == 0 or #inserters == 0 then return end
 
     local side_multiplier = settings.sides == "both" and settings.connect_both_green and 2 or 1
@@ -221,7 +225,7 @@ function Normal.generate(settings)
                 circuit_enabled = true,
                 circuit_condition = {
                     first_signal = { type = "virtual", name = "signal-everything" },
-                    constant = loading and inserter_stack_size(settings.inserter_name) or 0,
+                    constant = loading and inserter_stack_size(settings) or 0,
                     comparator = loading and "<" or ">",
                 },
             }
@@ -319,9 +323,9 @@ function Normal.generate(settings)
         connected_count = 1
     end
 
-    local chest_slots_count = 48
-    if settings.chest_name == "wooden-chest" then chest_slots_count = 16 end
-    if settings.chest_name == "iron-chest" then chest_slots_count = 32 end
+    local chest_slots_count = chest_prototype
+        and chest_prototype.get_inventory_size(defines.inventory.chest)
+        or 48
     if settings.chest_limit and settings.chest_limit > 0 then
         chest_slots_count = math.min(chest_slots_count, settings.chest_limit)
     end

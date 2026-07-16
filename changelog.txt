@@ -1,4 +1,30 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.5
+Date: 17. 07. 2026
+  Major Features:
+    - Restored diagonal stacker generation as an experimental feature using Factorio 2.1 native rail-planner geometry.
+    - Added a per-player mod setting that controls whether the experimental diagonal option appears in the Railwright stacker menu; the option is shown by default.
+  Changes:
+    - Added an experimental diagonal checkbox for both Left-Right and Right-Left stacker directions.
+    - Reworked diagonal signal placement around signal locations reported by Factorio's native rail ends.
+    - All lane-entry chain signals now use the first incoming diagonal anchor, and all lane-exit signals use the final incoming diagonal anchor.
+    - Corrected the entrance and outer-exit chain signals to use the proper side of the rail.
+    - Adjusted diagonal holding-lane sizing for train length and wide stacker fans.
+    - Removed the hidden /railwright-experimental-diagonal command; experimental access is now controlled through Settings > Mod settings > Per player.
+    - Added a native PowerShell build script that creates and validates a Factorio-compatible ZIP in the dist directory.
+    - Local PowerShell builds now include a separate dist/debug-commands.txt reference for diagnostic testing.
+    - Removed unreachable compatibility-era diagonal code and unused runtime helpers.
+    - Dynamic train limits now use Factorio prototype inventory and fluid capacities instead of assuming vanilla container sizes.
+    - Madzuri loading thresholds now use the selected inserter prototype and the generating force's researched capacity bonuses.
+    - Batched temporary rail-surface chunk generation for diagonal geometry construction.
+    - Added architectural comments throughout the Lua modules to document responsibilities and non-obvious invariants.
+  Bugfixes:
+    - Fixed diagonal signals appearing on the wrong side of incoming and outgoing rails.
+    - Fixed staggered lane signal indices that placed signals on unintended diagonal rail segments.
+    - Fixed short Left-Right holding lanes and excessively long Right-Left holding lanes at higher lane counts.
+  Known Issues:
+    - Diagonal stackers remain experimental while more train lengths, lane counts, and mod combinations are tested.
+---------------------------------------------------------------------------------------------------
 Version: 0.3.4
 Date: 16. 07. 2026
   Bugfixes:

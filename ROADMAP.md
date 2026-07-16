@@ -2,15 +2,12 @@
 
 Railwright is already capable of generating item stations, fluid stations, and stackers. The next milestones focus on replacing remaining compatibility-era foundations first, then expanding station behavior and workflow features on top of a fully modern Factorio 2.1 base.
 
-## Current priority — 0.3.0
+## Current priority — 0.3.x native rail stabilization
 
 ### Modern rail generation
 
-- Rebuild stacker templates around native Factorio 2.1 rail geometry.
-- Replace `legacy-straight-rail` and `legacy-curved-rail` with the current rail prototypes used by Factorio 2.1.
-- Recreate and validate vertical and diagonal stacker geometry using native straight, half-diagonal, and curved rail pieces.
-- Verify rail signals and chain signals are positioned correctly for every supported stacker direction.
-- Remove the dependency on compatibility/legacy rail prototypes entirely.
+- Continue validating the experimental diagonal generator across train lengths, lane counts, and mod combinations.
+- Verify rail signals and chain signals remain positioned correctly for every native stacker direction.
 - Add regression fixtures for known-good stacker layouts before expanding the available layouts.
 - Add more stacker layouts after the modern geometry foundation is stable.
 

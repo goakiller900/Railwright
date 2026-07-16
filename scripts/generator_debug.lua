@@ -1,3 +1,5 @@
+-- Opt-in stacker diagnostics. Snapshots record exact and translation-normalized
+-- entities so Factorio's blueprint canonicalization can be inspected in logs.
 local Debug = {}
 
 local STORAGE_KEY = "railwright_blueprint_debug_players"
@@ -181,6 +183,10 @@ function Debug.log_settings(settings)
     log("[Railwright][blueprint-debug][settings] " .. serialize_value(settings or {}))
 end
 
+function Debug.log_diagonal_signal(details)
+    log("[Railwright][blueprint-debug][diagonal-signal] " .. serialize_value(details or {}))
+end
+
 function Debug.log_comparison(label, expected, actual)
     local comparison = Debug.compare_entities(expected, actual)
     log(string.format(
@@ -191,10 +197,6 @@ function Debug.log_comparison(label, expected, actual)
         serialize_value(comparison.extra)
     ))
     return comparison
-end
-
-function Debug.serialize(value)
-    return serialize_value(value)
 end
 
 return Debug
