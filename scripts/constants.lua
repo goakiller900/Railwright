@@ -97,8 +97,6 @@ local Constants = {
     enabled_operators = { ">", "<" },
 
     stacker_types = {
-        "Left-Left",
-        "Right-Right",
         "Left-Right",
         "Right-Left",
     },
