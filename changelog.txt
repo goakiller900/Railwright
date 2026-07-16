@@ -4,6 +4,7 @@ Date: 16. 07. 2026
   Major Features:
     - Added a dedicated Right-Left parallel stacker layout based on a manually built Factorio 2.1 reference.
   Changes:
+    - Right-Left stackers are now confirmed working with Factorio 2.1 native rails.
     - Right-Left stackers now use their own rail layout instead of reusing the Left-Right layout in reverse.
     - Added the correct Right-Left entrance and exit curves, vertical connections, and lane signal placement.
     - Preserved chain signals at both outer ends of the Right-Left stacker reference layout.
