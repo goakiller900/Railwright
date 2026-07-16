@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import binascii
 from collections import Counter, defaultdict
 import json
 from pathlib import Path
@@ -26,8 +27,13 @@ def rounded(value: float | int | None) -> float:
 
 def load_text(source: str) -> str:
     path = Path(source)
-    if path.is_file():
-        return path.read_text(encoding="utf-8").strip()
+    try:
+        if path.is_file():
+            return path.read_text(encoding="utf-8").strip()
+    except OSError:
+        # A full Factorio blueprint string can exceed the platform's maximum
+        # file-name length. In that case it is input data, not a path.
+        pass
     return source.strip()
 
 
@@ -189,7 +195,7 @@ def main() -> int:
     try:
         left_entities = extract_entities(load_payload(args.left))
         right_entities = extract_entities(load_payload(args.right))
-    except (OSError, ValueError, json.JSONDecodeError, base64.binascii.Error, zlib.error) as exc:
+    except (OSError, ValueError, json.JSONDecodeError, binascii.Error, zlib.error) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
