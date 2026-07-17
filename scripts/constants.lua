@@ -13,6 +13,8 @@ local Constants = {
         titlebar = "railwright_titlebar",
         close_button = "railwright_close_button",
         scroll = "railwright_scroll",
+        summary_label = "railwright_summary_label",
+        validation_label = "railwright_validation_label",
         generate_button = "railwright_generate_button",
 
         common_group = "railwright_common_group",
@@ -29,7 +31,9 @@ local Constants = {
         include_train = "railwright_include_train",
 
         sides = "railwright_sides",
+        transfer_mode = "railwright_transfer_mode",
         inserter = "railwright_inserter",
+        loader = "railwright_loader",
         chest = "railwright_chest",
         belt = "railwright_belt",
         splitter = "railwright_splitter",
@@ -87,6 +91,9 @@ local Constants = {
 
     sides = { "Both", "Right", "Left" },
     side_keys = { "both", "right", "left" },
+
+    transfer_modes = { "Inserters", "Compact loaders" },
+    transfer_mode_keys = { "inserters", "loaders" },
 
     pump_sides = { "Right", "Left" },
     pump_side_keys = { "right", "left" },

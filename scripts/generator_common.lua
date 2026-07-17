@@ -171,7 +171,9 @@ function Common.add_refuel(builder, settings)
     }, false)
 
     for _, y in ipairs(Common.front_locomotive_indices(settings)) do
-        if y % 7 == 5 then
+        -- Use a point farther along the locomotive. The former y % 7 == 5
+        -- position put the first fuel inserter and chest on top of the stop.
+        if y % 7 == 1 then
             builder:add("inserter", 0.5, y + 1, { direction = defines.direction.east })
             builder:add("requester-chest", 1.5, y + 1, { request_filters = request_filters })
         end

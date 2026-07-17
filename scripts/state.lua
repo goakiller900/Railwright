@@ -19,7 +19,9 @@ local default_settings = {
     include_train = false,
 
     sides = "both",
+    transfer_mode = "inserters",
     inserter_name = "fast-inserter",
+    loader_name = "fast-transport-belt-loader",
     chest_name = "steel-chest",
     belt_name = "fast-transport-belt",
     splitter_name = "fast-splitter",

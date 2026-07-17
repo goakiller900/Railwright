@@ -59,11 +59,30 @@ end)
 
 script.on_event(defines.events.on_gui_selection_state_changed, function(event)
     local element = event.element
-    if not element or not element.valid or element.name ~= Constants.gui.station_type then return end
+    if not element or not element.valid then return end
 
     local player = game.get_player(event.player_index)
-    if player then Gui.update_visibility(player) end
+    if not player or not player.gui.screen[Constants.gui.frame] then return end
+
+    if element.name == Constants.gui.station_type
+        or element.name == Constants.gui.train_limit
+        or element.name == Constants.gui.transfer_mode then
+        Gui.update_visibility(player)
+    else
+        Gui.update_summary(player)
+    end
 end)
+
+local function refresh_gui(event)
+    local element = event.element
+    if not element or not element.valid then return end
+    local player = game.get_player(event.player_index)
+    if player and player.gui.screen[Constants.gui.frame] then Gui.update_visibility(player) end
+end
+
+script.on_event(defines.events.on_gui_text_changed, refresh_gui)
+script.on_event(defines.events.on_gui_checked_state_changed, refresh_gui)
+script.on_event(defines.events.on_gui_elem_changed, refresh_gui)
 
 script.on_event(defines.events.on_gui_click, function(event)
     local element = event.element

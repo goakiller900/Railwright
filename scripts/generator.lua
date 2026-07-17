@@ -15,7 +15,9 @@ local function generation_settings_for_player(player, settings, debug_enabled)
     local result = {}
     for key, value in pairs(settings) do result[key] = value end
 
-    local inserter = prototypes.entity[settings.inserter_name or ""]
+    local inserter = settings.transfer_mode ~= "loaders"
+        and prototypes.entity[settings.inserter_name or ""]
+        or nil
     if inserter and inserter.type == "inserter" then
         local capacity = 1 + (inserter.inserter_stack_size_bonus or 0)
         if inserter.uses_inserter_stack_size_bonus ~= false then
@@ -87,7 +89,16 @@ local function validate_common(settings)
 end
 
 local function validate_normal(settings)
-    local ok, message = validate_entity(settings.inserter_name, { inserter = true }, "Inserter")
+    local using_loaders = settings.transfer_mode == "loaders"
+    local ok, message
+    if using_loaders then
+        ok, message = validate_entity(settings.loader_name, {
+            ["loader-1x1"] = true,
+            loader = true,
+        }, "Loader")
+    else
+        ok, message = validate_entity(settings.inserter_name, { inserter = true }, "Inserter")
+    end
     if not ok then return false, message end
 
     ok, message = validate_entity(settings.chest_name, {
@@ -107,7 +118,7 @@ local function validate_normal(settings)
     if settings.filter_enabled then
         for index, item_name in ipairs(settings.filter_items or {}) do
             if item_name ~= "" then
-                ok, message = validate_item(item_name, "Inserter filter " .. index)
+                ok, message = validate_item(item_name, "Transfer filter " .. index)
                 if not ok then return false, message end
             end
         end
