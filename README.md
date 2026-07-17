@@ -11,9 +11,11 @@ Railwright is an in-game train station blueprint generator for Factorio 2.1.
 
 The project is a modern successor inspired by BurnySc2's original **Train Station Blueprint Creator** (`BurnysTSBC`) and the later web-based Train Station Blueprint Creator. Railwright is a new implementation designed around the current Factorio runtime API and the prototypes that are actually available in the player's mod set.
 
-## Current status — 0.3.5
+## Current status — 0.3.6
 
-Railwright 0.3.5 keeps the confirmed **Left-Right** and **Right-Left** parallel layouts unchanged and restores native Factorio 2.1 diagonal stacker generation as an experimental feature. The diagonal option is shown by default, and a per-player mod setting can hide it from the stacker menu.
+Railwright 0.3.6 keeps the confirmed **Left-Right** and **Right-Left** parallel layouts unchanged, while making the generator window clearer with a live blueprint summary, contextual controls, input feedback, and focused tooltips. Native Factorio 2.1 diagonal stackers remain available as an experimental feature.
+
+When **Deadlock's Stacking Beltboxes & Compact Loaders Continued** is installed, item stations can use compatible compact loaders instead of inserters. Loader stations use direct staggered splitter chains appropriate for 1x1 loaders. This integration is optional; ordinary inserter stations remain the default.
 
 ### Station types
 
@@ -36,8 +38,8 @@ Railwright 0.3.5 keeps the confirmed **Left-Right** and **Right-Left** parallel 
 
 ### Item station settings
 
-- Runtime prototype pickers for inserters, chests, transport belts, and splitters.
-- Inserter filters.
+- Runtime prototype pickers for inserters, compatible compact loaders, chests, transport belts, and splitters.
+- Inserter and compact-loader filters.
 - Belt flow toward the front, back, or no longitudinal belt output.
 - Chest slot limiting.
 - Logistic requester/buffer chest requests.
@@ -74,6 +76,8 @@ The generator constructs its geometry on a temporary Factorio surface through th
 Railwright is still under active development and the generator has many possible setting combinations.
 
 - Diagonal stackers remain experimental and may still expose edge cases with unusual train sizes, lane counts, or modded rail prototypes.
+- Loader-based loading stations can appear offset in the blueprint preview; the entities align correctly after the blueprint is placed in the world. Somehow. We have no idea why this works either.
+- Inserter-based item stations have a minor belt-routing issue that is deferred to a later release.
 - The automatic dynamic train-limit behavior is available, but the web generator's advanced custom arithmetic formula controls are not exposed yet.
 - Unusual modded prototypes may still need additional capability detection even when they appear in a runtime picker.
 - Broad testing across overhaul mod packs is ongoing.
@@ -89,7 +93,7 @@ railwright
 or with the version suffix:
 
 ```text
-railwright_0.3.5
+railwright_0.3.6
 ```
 
 Start Factorio 2.1 and enable **Railwright** in the mod manager.
@@ -141,7 +145,7 @@ python tools/validate_png.py thumbnail.png graphics/railwright-shortcut-x56.png
 To preview the GitHub release notes generated from a changelog entry:
 
 ```text
-python tools/release_notes.py 0.3.5
+python tools/release_notes.py 0.3.6
 ```
 
 ## Usage

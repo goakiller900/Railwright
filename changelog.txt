@@ -1,4 +1,24 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.6
+Date: 17. 07. 2026
+  Changes:
+    - Added a live blueprint summary showing layout, direction, lanes, and selected train size.
+    - Added immediate feedback for invalid train-size and stacker-lane values.
+    - Contextual station controls now hide when their parent feature is disabled or not applicable.
+    - Added focused tooltips for train sizing, dynamic limits, balanced loading, and stacker options.
+    - Improved the experimental diagonal presentation with a visible caution below its controls.
+    - Prevented development scripts and executable file types from entering Mod Portal archives.
+    - Added optional support for Deadlock compact loaders as an alternative item-transfer method.
+    - Loader stations use wagon-to-loader, loader-to-chest, and chest-to-belt chains in both directions.
+  Bugfixes:
+    - Fixed compact loaders facing the wrong direction in loading and unloading stations on both sides of the train.
+    - Replaced inserter-style belt collectors on compact-loader stations with direct staggered splitter chains.
+    - Moved front-locomotive refuelling equipment clear of the train stop so all ghosts can be placed.
+  Known Issues:
+    - Diagonal stackers remain experimental while more train lengths, lane counts, and mod combinations are tested.
+    - Loader-based loading stations can look offset in the blueprint preview, but align correctly when placed in the world. Somehow. We have no idea why this works either.
+    - Inserter-based item stations have a minor belt-routing issue planned for a later release.
+---------------------------------------------------------------------------------------------------
 Version: 0.3.5
 Date: 17. 07. 2026
   Major Features:
