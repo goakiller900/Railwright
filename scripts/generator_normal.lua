@@ -115,7 +115,7 @@ local unloading_belt_directions = {
     defines.direction.north,
 }
 
-local function add_vertical_belts(builder, settings, splitters, right_side)
+local function add_vertical_belts(builder, settings, splitters, right_side, x_offset)
     if settings.belt_flow == "none" or #splitters == 0 then return end
 
     table.sort(splitters, function(a, b) return a.position.y < b.position.y end)
@@ -126,7 +126,8 @@ local function add_vertical_belts(builder, settings, splitters, right_side)
     end
 
     local loading = settings.station_type == "loading"
-    local x = right_side and 5.5 or mirror_x(5.5)
+    local belt_x = 5.5 + (x_offset or 0)
+    local x = right_side and belt_x or mirror_x(belt_x)
 
     for _, splitter in ipairs(splitters) do
         local anchor_y = splitters[1].position.y
@@ -156,6 +157,53 @@ local function add_vertical_belts(builder, settings, splitters, right_side)
         end
 
         x = x + (right_side and 1 or -1)
+    end
+end
+
+local function loader_options(direction, connection_type, filters)
+    return {
+        direction = direction,
+        type = connection_type,
+        filters = filters,
+        filter_mode = filters and "whitelist" or nil,
+    }
+end
+
+local function add_loader_splitter_chain(builder, settings, wagon, right_side)
+    if settings.belt_flow == "none" then return end
+
+    local loading = settings.station_type == "loading"
+    local cargo_start = settings.locomotives * 7 - 3
+    local first_y = cargo_start + wagon * 7 + 2
+    local direction
+    if right_side then
+        direction = loading and defines.direction.west or defines.direction.east
+    else
+        direction = loading and defines.direction.east or defines.direction.west
+    end
+
+    -- Compact loaders connect directly to belts. Pair their six lanes at the
+    -- wagon, then cascade those pairs through two offset splitters. This is a
+    -- separate topology from the inserter station's vertical belt collector.
+    local near_x = right_side and 4.5 or mirror_x(4.5)
+    local far_x = right_side and 5.5 or mirror_x(5.5)
+    for offset = 0, 4, 2 do
+        builder:add(settings.splitter_name, near_x, first_y + offset + 0.5, {
+            direction = direction,
+        })
+    end
+    for offset = 1, 3, 2 do
+        builder:add(settings.splitter_name, far_x, first_y + offset + 0.5, {
+            direction = direction,
+        })
+    end
+
+    local belt_y = first_y + (loading and 1 or 3)
+    local x_step = right_side and 1 or -1
+    local belt_x = far_x + x_step
+    for _ = 1, 3 do
+        builder:add(settings.belt_name, belt_x, belt_y, { direction = direction })
+        belt_x = belt_x + x_step
     end
 end
 
@@ -199,12 +247,13 @@ function Normal.generate(settings)
     local train_stop = Common.add_tracks_signals_and_stop(builder, settings)
     local use_right, use_left = selected_sides(settings)
     local loading = settings.station_type == "loading"
+    local using_loaders = settings.transfer_mode == "loaders"
     local inserter_direction = loading and defines.direction.east or defines.direction.west
     local belt_directions = loading and loading_belt_directions or unloading_belt_directions
     local filters = filter_array(settings)
     local chest_prototype = prototypes.entity[settings.chest_name]
     local bot_chest = chest_prototype and chest_prototype.type == "logistic-container"
-    local madzuri_enabled = settings.madzuri and not bot_chest
+    local madzuri_enabled = settings.madzuri and not bot_chest and not using_loaders
     local chest_settings = chest_options(settings, chest_prototype)
 
     local right_chests, left_chests = {}, {}
@@ -232,29 +281,59 @@ function Normal.generate(settings)
         end
 
         if use_right then
-            builder:add(settings.inserter_name, 0.5, position.y, inserter_options)
-            right_chests[#right_chests + 1] = builder:add(settings.chest_name, 1.5, position.y, chest_settings)
-            if not bot_chest then
-                right_outer[#right_outer + 1] = builder:add(settings.inserter_name, 2.5, position.y, outer_options)
-                builder:add(settings.belt_name, 3.5, position.y, { direction = belt_directions[position.slot] })
+            if using_loaders then
+                local transfer_type = loading and "input" or "output"
+                local chest_type = loading and "output" or "input"
+                local loader_direction = loading and defines.direction.west or defines.direction.east
+                builder:add(settings.loader_name, 0.5, position.y,
+                    loader_options(loader_direction, transfer_type, filters))
+                builder:add(settings.loader_name, 1.5, position.y,
+                    loader_options(loader_direction, chest_type, filters))
+                right_chests[#right_chests + 1] = builder:add(settings.chest_name, 2.5, position.y, chest_settings)
+                if not bot_chest then
+                    builder:add(settings.loader_name, 3.5, position.y,
+                        loader_options(loader_direction, transfer_type, filters))
+                end
+            else
+                builder:add(settings.inserter_name, 0.5, position.y, inserter_options)
+                right_chests[#right_chests + 1] = builder:add(settings.chest_name, 1.5, position.y, chest_settings)
+                if not bot_chest then
+                    right_outer[#right_outer + 1] = builder:add(settings.inserter_name, 2.5, position.y, outer_options)
+                    builder:add(settings.belt_name, 3.5, position.y, { direction = belt_directions[position.slot] })
+                end
             end
         end
 
         if use_left then
-            builder:add(settings.inserter_name, mirror_x(0.5), position.y, {
-                direction = mirror_direction(inserter_direction),
-                filters = filters,
-                use_filters = filters and true or nil,
-            })
-            left_chests[#left_chests + 1] = builder:add(settings.chest_name, mirror_x(1.5), position.y, chest_settings)
-
-            if not bot_chest then
-                local left_outer_options = Builder.deep_copy(outer_options)
-                left_outer_options.direction = mirror_direction(inserter_direction)
-                left_outer[#left_outer + 1] = builder:add(settings.inserter_name, mirror_x(2.5), position.y, left_outer_options)
-                builder:add(settings.belt_name, mirror_x(3.5), position.y, {
-                    direction = mirror_direction(belt_directions[position.slot]),
+            if using_loaders then
+                local transfer_type = loading and "input" or "output"
+                local chest_type = loading and "output" or "input"
+                local loader_direction = loading and defines.direction.east or defines.direction.west
+                builder:add(settings.loader_name, mirror_x(0.5), position.y,
+                    loader_options(loader_direction, transfer_type, filters))
+                builder:add(settings.loader_name, mirror_x(1.5), position.y,
+                    loader_options(loader_direction, chest_type, filters))
+                left_chests[#left_chests + 1] = builder:add(settings.chest_name, mirror_x(2.5), position.y, chest_settings)
+                if not bot_chest then
+                    builder:add(settings.loader_name, mirror_x(3.5), position.y,
+                        loader_options(loader_direction, transfer_type, filters))
+                end
+            else
+                builder:add(settings.inserter_name, mirror_x(0.5), position.y, {
+                    direction = mirror_direction(inserter_direction),
+                    filters = filters,
+                    use_filters = filters and true or nil,
                 })
+                left_chests[#left_chests + 1] = builder:add(settings.chest_name, mirror_x(1.5), position.y, chest_settings)
+
+                if not bot_chest then
+                    local left_outer_options = Builder.deep_copy(outer_options)
+                    left_outer_options.direction = mirror_direction(inserter_direction)
+                    left_outer[#left_outer + 1] = builder:add(settings.inserter_name, mirror_x(2.5), position.y, left_outer_options)
+                    builder:add(settings.belt_name, mirror_x(3.5), position.y, {
+                        direction = mirror_direction(belt_directions[position.slot]),
+                    })
+                end
             end
         end
     end
@@ -262,23 +341,30 @@ function Normal.generate(settings)
     if not bot_chest then
         local cargo_start = settings.locomotives * 7 - 3
         for wagon = 0, settings.cargo_wagons - 1 do
-            local y = cargo_start + wagon * 7 + 4.5
-            local splitter_direction = loading and defines.direction.west or defines.direction.east
+            if using_loaders then
+                if use_right then add_loader_splitter_chain(builder, settings, wagon, true) end
+                if use_left then add_loader_splitter_chain(builder, settings, wagon, false) end
+            else
+                local y = cargo_start + wagon * 7 + 4.5
+                local splitter_direction = loading and defines.direction.west or defines.direction.east
 
-            if use_right then
-                right_splitters[#right_splitters + 1] = builder:add(settings.splitter_name, 4.5, y, {
-                    direction = splitter_direction,
-                })
-            end
-            if use_left then
-                left_splitters[#left_splitters + 1] = builder:add(settings.splitter_name, mirror_x(4.5), y, {
-                    direction = mirror_direction(splitter_direction),
-                })
+                if use_right then
+                    right_splitters[#right_splitters + 1] = builder:add(settings.splitter_name, 4.5, y, {
+                        direction = splitter_direction,
+                    })
+                end
+                if use_left then
+                    left_splitters[#left_splitters + 1] = builder:add(settings.splitter_name, mirror_x(4.5), y, {
+                        direction = mirror_direction(splitter_direction),
+                    })
+                end
             end
         end
 
-        add_vertical_belts(builder, settings, right_splitters, true)
-        add_vertical_belts(builder, settings, left_splitters, false)
+        if not using_loaders then
+            add_vertical_belts(builder, settings, right_splitters, true)
+            add_vertical_belts(builder, settings, left_splitters, false)
+        end
     end
 
     add_poles_and_lamps(builder, settings, right_poles, left_poles)

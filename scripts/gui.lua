@@ -37,6 +37,18 @@ local function set_row_visible(root, name, visible)
     if control then control.visible = visible end
 end
 
+local function loaders_available()
+    for _, prototype in pairs(prototypes.entity) do
+        if prototype.type == "loader-1x1" or prototype.type == "loader" then return true end
+    end
+    return false
+end
+
+local function set_tooltip(element, tooltip)
+    if element and tooltip then element.tooltip = tooltip end
+    return element
+end
+
 local function add_row(table_element, caption, definition)
     local label_definition = { type = "label", caption = caption }
     if definition.name then label_definition.name = definition.name .. "_label" end
@@ -63,7 +75,7 @@ local function add_section(parent, name, caption, columns)
     return frame, content
 end
 
-local function entity_picker(table_element, caption, name, value, filters)
+local function entity_picker(table_element, caption, name, value, filters, tooltip)
     local picker = add_row(table_element, caption, {
         type = "choose-elem-button",
         name = name,
@@ -71,7 +83,7 @@ local function entity_picker(table_element, caption, name, value, filters)
         entity = value,
     })
     if filters then picker.elem_filters = filters end
-    return picker
+    return set_tooltip(picker, tooltip)
 end
 
 local function item_picker(table_element, caption, name, value)
@@ -83,32 +95,84 @@ local function item_picker(table_element, caption, name, value)
     })
 end
 
-local function textfield(table_element, caption, name, value, numeric)
-    return add_row(table_element, caption, {
+local function textfield(table_element, caption, name, value, numeric, tooltip)
+    return set_tooltip(add_row(table_element, caption, {
         type = "textfield",
         name = name,
         text = tostring(value),
         numeric = numeric or false,
         allow_decimal = not numeric,
         allow_negative = false,
-    })
+    }), tooltip)
 end
 
-local function checkbox(table_element, caption, name, state)
-    return add_row(table_element, caption, {
+local function checkbox(table_element, caption, name, state, tooltip)
+    return set_tooltip(add_row(table_element, caption, {
         type = "checkbox",
         name = name,
         state = state,
-    })
+    }), tooltip)
 end
 
-local function dropdown(table_element, caption, name, items, selected_index)
-    return add_row(table_element, caption, {
+local function dropdown(table_element, caption, name, items, selected_index, tooltip)
+    return set_tooltip(add_row(table_element, caption, {
         type = "drop-down",
         name = name,
         items = items,
         selected_index = selected_index,
-    })
+    }), tooltip)
+end
+
+local function positive_integer_text(element)
+    if not element then return nil end
+    local value = tonumber(element.text)
+    if not value or value ~= math.floor(value) or value < 1 then return nil end
+    return value
+end
+
+function Gui.update_summary(player)
+    local frame = player.gui.screen[Constants.gui.frame]
+    if not frame then return end
+
+    local station = find_element(frame, Constants.gui.station_type)
+    local locomotives_element = find_element(frame, Constants.gui.locomotives)
+    local wagons_element = find_element(frame, Constants.gui.cargo_wagons)
+    local summary = find_element(frame, Constants.gui.summary_label)
+    local validation = find_element(frame, Constants.gui.validation_label)
+    local generate = find_element(frame, Constants.gui.generate_button)
+    if not station or not summary or not validation or not generate then return end
+
+    local station_type = Constants.station_type_keys[station.selected_index] or "loading"
+    local locomotives = positive_integer_text(locomotives_element)
+    local wagons = positive_integer_text(wagons_element)
+    local valid = locomotives ~= nil and wagons ~= nil
+
+    if station_type == "stacker" then
+        local lanes = positive_integer_text(find_element(frame, Constants.gui.stacker_lanes))
+        local direction = find_element(frame, Constants.gui.stacker_type)
+        local diagonal = find_element(frame, Constants.gui.stacker_diagonal)
+        valid = valid and lanes ~= nil
+        summary.caption = {
+            "railwright.summary-stacker",
+            diagonal and diagonal.state and { "railwright.layout-diagonal" } or { "railwright.layout-parallel" },
+            Constants.stacker_types[direction and direction.selected_index or 1] or "Left-Right",
+            tostring(lanes or "?"),
+            tostring(locomotives or "?"),
+            tostring(wagons or "?"),
+        }
+    else
+        summary.caption = {
+            "railwright.summary-station",
+            Constants.station_types[station.selected_index] or Constants.station_types[1],
+            tostring(locomotives or "?"),
+            tostring(wagons or "?"),
+        }
+    end
+
+    generate.enabled = valid
+    validation.caption = valid and { "railwright.ready" } or { "railwright.invalid-train-size" }
+    validation.style.font_color = valid and { 0.45, 0.9, 0.45 } or { 1, 0.45, 0.35 }
+    generate.tooltip = valid and { "railwright.generate-tooltip" } or { "railwright.generate-disabled-tooltip" }
 end
 
 function Gui.close(player)
@@ -139,9 +203,30 @@ function Gui.update_visibility(player)
     if behavior_group then behavior_group.visible = not stacker end
     if stacker_group then stacker_group.visible = stacker end
 
+    local transfer_mode = find_element(frame, Constants.gui.transfer_mode)
+    local using_loaders = item_station and transfer_mode and transfer_mode.selected_index == 2
+    set_row_visible(frame, Constants.gui.inserter, item_station and not using_loaders)
+    set_row_visible(frame, Constants.gui.loader, item_station and using_loaders)
+    set_row_visible(frame, Constants.gui.madzuri, item_station and not using_loaders)
+
     set_row_visible(frame, Constants.gui.station_name, not stacker)
     set_row_visible(frame, Constants.gui.double_headed, not stacker)
     set_row_visible(frame, Constants.gui.include_train, not stacker)
+
+    local refill = find_element(frame, Constants.gui.refill_enabled)
+    set_row_visible(frame, Constants.gui.refill_fuel, not stacker and refill and refill.state)
+    set_row_visible(frame, Constants.gui.refill_amount, not stacker and refill and refill.state)
+
+    local enabled_condition = find_element(frame, Constants.gui.enabled_condition)
+    set_row_visible(frame, Constants.gui.enabled_operator, not stacker and enabled_condition and enabled_condition.state)
+    set_row_visible(frame, Constants.gui.enabled_amount, not stacker and enabled_condition and enabled_condition.state)
+
+    local train_limit = find_element(frame, Constants.gui.train_limit)
+    local dynamic_limit = not stacker and train_limit and train_limit.selected_index == 2
+    set_row_visible(frame, Constants.gui.train_limit_one, dynamic_limit)
+    set_row_visible(frame, Constants.gui.train_limit_stack_size, dynamic_limit and item_station)
+
+    Gui.update_summary(player)
 end
 
 function Gui.open(player)
@@ -196,21 +281,40 @@ function Gui.open(player)
         { "railwright.station-type" },
         Constants.gui.station_type,
         Constants.station_types,
-        find_index(Constants.station_type_keys, settings.station_type)
+        find_index(Constants.station_type_keys, settings.station_type),
+        { "railwright.station-type-tooltip" }
     )
     textfield(common, { "railwright.station-name" }, Constants.gui.station_name, settings.station_name, false)
-    textfield(common, { "railwright.locomotives" }, Constants.gui.locomotives, settings.locomotives, true)
-    textfield(common, { "railwright.cargo-wagons" }, Constants.gui.cargo_wagons, settings.cargo_wagons, true)
-    checkbox(common, { "railwright.double-headed" }, Constants.gui.double_headed, settings.double_headed)
-    checkbox(common, { "railwright.include-train" }, Constants.gui.include_train, settings.include_train)
+    textfield(common, { "railwright.locomotives" }, Constants.gui.locomotives, settings.locomotives, true,
+        { "railwright.locomotives-tooltip" })
+    textfield(common, { "railwright.cargo-wagons" }, Constants.gui.cargo_wagons, settings.cargo_wagons, true,
+        { "railwright.wagons-tooltip" })
+    checkbox(common, { "railwright.double-headed" }, Constants.gui.double_headed, settings.double_headed,
+        { "railwright.double-headed-tooltip" })
+    checkbox(common, { "railwright.include-train" }, Constants.gui.include_train, settings.include_train,
+        { "railwright.include-train-tooltip" })
 
     local item_frame, item = add_section(scroll, Constants.gui.item_group, { "railwright.section-item" })
     dropdown(item, { "railwright.station-sides" }, Constants.gui.sides, Constants.sides,
         find_index(Constants.side_keys, settings.sides))
 
+    local available_loaders = loaders_available()
+    local transfer_items = available_loaders and Constants.transfer_modes or { Constants.transfer_modes[1] }
+    local selected_transfer = available_loaders
+        and find_index(Constants.transfer_mode_keys, settings.transfer_mode)
+        or 1
+    dropdown(item, { "railwright.transfer-mode" }, Constants.gui.transfer_mode, transfer_items,
+        selected_transfer, { "railwright.transfer-mode-tooltip" })
+
     entity_picker(item, { "railwright.inserter" }, Constants.gui.inserter, settings.inserter_name, {
         { filter = "type", type = "inserter" },
     })
+    if available_loaders then
+        entity_picker(item, { "railwright.loader" }, Constants.gui.loader, settings.loader_name, {
+            { filter = "type", type = "loader-1x1" },
+            { filter = "type", type = "loader", mode = "or" },
+        }, { "railwright.loader-tooltip" })
+    end
     entity_picker(item, { "railwright.chest" }, Constants.gui.chest, settings.chest_name, {
         { filter = "type", type = "container" },
         { filter = "type", type = "logistic-container", mode = "or" },
@@ -228,7 +332,8 @@ function Gui.open(player)
     checkbox(item, { "railwright.filter-enabled" }, Constants.gui.filter_enabled, settings.filter_enabled)
     textfield(item, { "railwright.chest-limit" }, Constants.gui.chest_limit, settings.chest_limit, true)
     checkbox(item, { "railwright.request-from-buffers" }, Constants.gui.request_from_buffers, settings.request_from_buffers)
-    checkbox(item, { "railwright.madzuri" }, Constants.gui.madzuri, settings.madzuri)
+    checkbox(item, { "railwright.madzuri" }, Constants.gui.madzuri, settings.madzuri,
+        { "railwright.madzuri-tooltip" })
 
     item_frame.add({ type = "label", caption = { "railwright.filter-items" } })
     local filter_table = item_frame.add({ type = "table", column_count = 5 })
@@ -289,7 +394,7 @@ function Gui.open(player)
     item_picker(behavior, { "railwright.refill-fuel" }, Constants.gui.refill_fuel, settings.refill_fuel)
     textfield(behavior, { "railwright.refill-amount" }, Constants.gui.refill_amount, settings.refill_amount, true)
     dropdown(behavior, { "railwright.train-limit" }, Constants.gui.train_limit, Constants.train_limits,
-        find_index(Constants.train_limits, settings.train_limit))
+        find_index(Constants.train_limits, settings.train_limit), { "railwright.train-limit-tooltip" })
     checkbox(behavior, { "railwright.train-limit-one" }, Constants.gui.train_limit_one, settings.train_limit_one)
     textfield(behavior, { "railwright.train-limit-stack-size" }, Constants.gui.train_limit_stack_size,
         settings.train_limit_stack_size, true)
@@ -299,8 +404,9 @@ function Gui.open(player)
     textfield(behavior, { "railwright.enabled-amount" }, Constants.gui.enabled_amount, settings.enabled_amount, true)
     checkbox(behavior, { "railwright.lamps" }, Constants.gui.lamps, settings.lamps)
 
-    local _, stacker = add_section(scroll, Constants.gui.stacker_group, { "railwright.section-stacker" })
-    textfield(stacker, { "railwright.stacker-lanes" }, Constants.gui.stacker_lanes, settings.stacker_lanes, true)
+    local stacker_frame, stacker = add_section(scroll, Constants.gui.stacker_group, { "railwright.section-stacker" })
+    textfield(stacker, { "railwright.stacker-lanes" }, Constants.gui.stacker_lanes, settings.stacker_lanes, true,
+        { "railwright.stacker-lanes-tooltip" })
     dropdown(stacker, { "railwright.stacker-type" }, Constants.gui.stacker_type, Constants.stacker_types,
         find_index(Constants.stacker_types, settings.stacker_type))
     if diagonal_setting_enabled(player) then
@@ -308,9 +414,31 @@ function Gui.open(player)
             stacker,
             { "railwright.stacker-diagonal-experimental" },
             Constants.gui.stacker_diagonal,
-            settings.stacker_diagonal
+            settings.stacker_diagonal,
+            { "railwright.stacker-diagonal-tooltip" }
         )
+        local experimental = stacker_frame.add({
+            type = "label",
+            caption = { "railwright.experimental-warning" },
+        })
+        experimental.style.font_color = { 1, 0.68, 0.2 }
+        experimental.style.single_line = false
     end
+
+    local summary_frame = frame.add({ type = "frame", direction = "vertical", style = "inside_shallow_frame" })
+    summary_frame.style.horizontally_stretchable = true
+    local summary = summary_frame.add({
+        type = "label",
+        name = Constants.gui.summary_label,
+        caption = "",
+        style = "bold_label",
+    })
+    summary.style.single_line = false
+    summary_frame.add({
+        type = "label",
+        name = Constants.gui.validation_label,
+        caption = "",
+    })
 
     local generate = frame.add({
         type = "button",
@@ -398,6 +526,8 @@ function Gui.read_settings(player)
     local side_index = get(Constants.gui.sides).selected_index
     local pump_side_index = get(Constants.gui.pump_side).selected_index
     local belt_flow_index = get(Constants.gui.belt_flow).selected_index
+    local transfer_mode = get(Constants.gui.transfer_mode)
+    local loader = get(Constants.gui.loader)
 
     return {
         station_type = Constants.station_type_keys[station_index] or "loading",
@@ -408,7 +538,9 @@ function Gui.read_settings(player)
         include_train = get(Constants.gui.include_train).state,
 
         sides = Constants.side_keys[side_index] or "both",
+        transfer_mode = transfer_mode and Constants.transfer_mode_keys[transfer_mode.selected_index] or "inserters",
         inserter_name = get(Constants.gui.inserter).elem_value,
+        loader_name = loader and loader.elem_value or "",
         chest_name = get(Constants.gui.chest).elem_value,
         belt_name = get(Constants.gui.belt).elem_value,
         splitter_name = get(Constants.gui.splitter).elem_value,
