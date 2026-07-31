@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.7
+Date: 01. 08. 2026
+  Bugfixes:
+    - Prevented the Railwright window from crashing when a saved or default entity prototype is missing from the current mod set.
+    - Missing optional loader selections now fall back to inserter transfer mode instead of passing an invalid loader name to the GUI.
+    - Newly created player settings now pass through the same prototype validation as migrated settings.
+  Community:
+    - Thanks to @dtrauma for reporting the Blueprint Sandbox compatibility problem in GitHub issue #13.
+---------------------------------------------------------------------------------------------------
 Version: 0.3.6
 Date: 17. 07. 2026
   Changes:
