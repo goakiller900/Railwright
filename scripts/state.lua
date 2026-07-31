@@ -68,6 +68,17 @@ local valid_stacker_types = {
     ["Right-Left"] = true,
 }
 
+local entity_setting_keys = {
+    "inserter_name",
+    "loader_name",
+    "chest_name",
+    "belt_name",
+    "splitter_name",
+    "pump_name",
+    "storage_tank_name",
+    "pipe_name",
+}
+
 local function deep_copy(value)
     if type(value) ~= "table" then return value end
 
@@ -90,8 +101,27 @@ local function merge_defaults(target, defaults)
     return target
 end
 
+local function clear_missing_entity_prototypes(settings)
+    local entity_prototypes = prototypes and prototypes.entity
+    if not entity_prototypes then return end
+
+    for _, key in ipairs(entity_setting_keys) do
+        local name = settings[key]
+        if name and name ~= "" and not entity_prototypes[name] then
+            settings[key] = nil
+        end
+    end
+
+    -- Loader support is optional. Fall back to the always-available inserter mode
+    -- when a saved/default loader prototype is absent from the current mod set.
+    if settings.transfer_mode == "loaders" and not settings.loader_name then
+        settings.transfer_mode = "inserters"
+    end
+end
+
 local function normalize_settings(settings)
     merge_defaults(settings, default_settings)
+    clear_missing_entity_prototypes(settings)
 
     if not valid_stacker_types[settings.stacker_type] then
         settings.stacker_type = "Left-Right"
@@ -110,7 +140,7 @@ function State.ensure_player(player_index)
     State.ensure_root()
 
     if not storage.players[player_index] then
-        storage.players[player_index] = deep_copy(default_settings)
+        storage.players[player_index] = normalize_settings(deep_copy(default_settings))
     else
         normalize_settings(storage.players[player_index])
     end
@@ -128,7 +158,7 @@ function State.set_player(player_index, settings)
 end
 
 function State.defaults()
-    return deep_copy(default_settings)
+    return normalize_settings(deep_copy(default_settings))
 end
 
 return State
