@@ -162,7 +162,9 @@ script.on_event(defines.events.on_gui_closed, function(event)
 end)
 
 script.on_event(defines.events.on_runtime_mod_setting_changed, function(event)
-    if event.setting ~= Constants.settings.enable_experimental_diagonal or not event.player_index then return end
+    local affects_generator = event.setting == Constants.settings.enable_experimental_diagonal
+        or event.setting == Constants.settings.enable_experimental_dynamic_station_names
+    if not affects_generator or not event.player_index then return end
 
     local player = game.get_player(event.player_index)
     if player then Gui.close(player) end

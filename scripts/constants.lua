@@ -9,6 +9,7 @@ local Constants = {
 
     settings = {
         enable_experimental_diagonal = "railwright-enable-experimental-diagonal",
+        enable_experimental_dynamic_station_names = "railwright-enable-experimental-dynamic-station-names",
     },
 
     gui = {
@@ -29,7 +30,6 @@ local Constants = {
 
         station_type = "railwright_station_type",
         station_name = "railwright_station_name",
-        dynamic_station_name = "railwright_dynamic_station_name",
         locomotives = "railwright_locomotives",
         cargo_wagons = "railwright_cargo_wagons",
         double_headed = "railwright_double_headed",

@@ -8,6 +8,25 @@ local function equal(actual, expected, message)
     end
 end
 
+do
+    local setting_prototypes
+    data = {
+        extend = function(_, prototypes_to_add) setting_prototypes = prototypes_to_add end,
+    }
+    dofile("settings.lua")
+    data = nil
+
+    local experimental
+    for _, prototype in ipairs(setting_prototypes or {}) do
+        if prototype.name == "railwright-enable-experimental-dynamic-station-names" then
+            experimental = prototype
+        end
+    end
+    equal(experimental and experimental.type, "bool-setting", "experimental setting type")
+    equal(experimental and experimental.setting_type, "runtime-per-user", "experimental setting scope")
+    equal(experimental and experimental.default_value, false, "experimental setting defaults off")
+end
+
 defines = {
     direction = {
         north = 0,

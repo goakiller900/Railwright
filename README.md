@@ -13,7 +13,7 @@ The project is a modern successor inspired by BurnySc2's original **Train Statio
 
 ## Current status — 0.3.8
 
-Railwright 0.3.8 adds optional dynamic train-stop names for generated item and fluid stations while keeping the existing station and stacker layouts unchanged. Native Factorio 2.1 diagonal stackers remain available as an experimental feature.
+Railwright 0.3.8 adds experimental, opt-in dynamic train-stop names for generated item and fluid stations while keeping the existing station and stacker layouts unchanged. Native Factorio 2.1 diagonal stackers remain available as an experimental feature.
 
 When **Deadlock's Stacking Beltboxes & Compact Loaders Continued** is installed, item stations can use compatible compact loaders instead of inserters. Loader stations use direct staggered splitter chains appropriate for 1x1 loaders. This integration is optional; ordinary inserter stations remain the default.
 
@@ -60,11 +60,11 @@ When **Deadlock's Stacking Beltboxes & Compact Loaders Continued** is installed,
 - Manual or dynamic train limits.
 - Circuit-controlled train-stop enable/disable behavior.
 - Optional lamps near power poles.
-- Optional runtime-managed dynamic station names.
+- Experimental, opt-in runtime-managed dynamic station names.
 
 ### Dynamic station names
 
-Enable **Dynamic station name** to add one dedicated Railwright station-name combinator to a generated item or fluid station. Supply exactly one positive item or fluid signal to the combinator input and Railwright's runtime script renames the associated stop with a rich-text resource icon followed by the existing **Station name** value. For example, a base name of `Load` becomes `[item=iron-ore] Load` or `[fluid=crude-oil] Load`.
+Dynamic station names are experimental and disabled by default. To enable them, open **Settings > Mod settings > Per player** and switch on **[Experimental] Dynamic station names**. Newly generated item and fluid stations then include one dedicated Railwright station-name combinator. Supply exactly one positive item or fluid signal to the combinator input and Railwright's runtime script renames the associated stop with a rich-text resource icon followed by the existing **Station name** value. For example, a base name of `Load` becomes `[item=iron-ore] Load` or `[fluid=crude-oil] Load`.
 
 When the signal disappears, Railwright preserves the last valid dynamic name instead of flickering back to the base name. If more than one different resource is present, the input is ambiguous and the current valid name is preserved. Before any valid resource is seen, the configured station name remains unchanged. The combinator's direct output-red wire identifies its train stop; the runtime reads only the marker's input side and does not pass the resource signal through to the stop.
 
@@ -86,11 +86,11 @@ Railwright is still under active development and the generator has many possible
 
 - Diagonal stackers remain experimental and may still expose edge cases with unusual train sizes, lane counts, or modded rail prototypes.
 - Loader-based loading stations can appear offset in the blueprint preview; the entities align correctly after the blueprint is placed in the world. Somehow. We have no idea why this works either.
-- Inserter-based item stations have a minor belt-routing issue that is deferred to a later release.
 - The automatic dynamic train-limit behavior is available, but the web generator's advanced custom arithmetic formula controls are not exposed yet.
 - Unusual modded prototypes may still need additional capability detection even when they appear in a runtime picker.
 - Broad testing across overhaul mod packs is ongoing.
 - The Railwright station-name combinator intentionally uses vanilla decider-combinator artwork in 0.3.8.
+- Dynamic station naming remains experimental and must be enabled through the per-player mod settings.
 
 ## Installation for development
 
