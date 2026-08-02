@@ -64,7 +64,7 @@ When **Deadlock's Stacking Beltboxes & Compact Loaders Continued** is installed,
 
 ### Dynamic station names
 
-Dynamic station names are experimental and disabled by default. To enable them, open **Settings > Mod settings > Per player** and switch on **[Experimental] Dynamic station names**. Newly generated item and fluid stations then include one dedicated Railwright station-name combinator. Supply exactly one positive item or fluid signal to the combinator input and Railwright's runtime script renames the associated stop with a rich-text resource icon followed by the existing **Station name** value. For example, a base name of `Load` becomes `[item=iron-ore] Load` or `[fluid=crude-oil] Load`.
+Dynamic station names are experimental and disabled by default. To make the option available, open **Settings > Mod settings > Per player** and switch on **[Experimental] Dynamic station names**. The **Dynamic station name (experimental)** checkbox then appears in Railwright's Station behavior section for item and fluid stations and remains unchecked by default. Enable that checkbox for a station to include one dedicated Railwright station-name combinator. Supply exactly one positive item or fluid signal to the combinator input and Railwright's runtime script renames the associated stop with a rich-text resource icon followed by the existing **Station name** value. For example, a base name of `Load` becomes `[item=iron-ore] Load` or `[fluid=crude-oil] Load`.
 
 When the signal disappears, Railwright preserves the last valid dynamic name instead of flickering back to the base name. If more than one different resource is present, the input is ambiguous and the current valid name is preserved. Before any valid resource is seen, the configured station name remains unchanged. The combinator's direct output-red wire identifies its train stop; the runtime reads only the marker's input side and does not pass the resource signal through to the stop.
 
@@ -90,7 +90,7 @@ Railwright is still under active development and the generator has many possible
 - Unusual modded prototypes may still need additional capability detection even when they appear in a runtime picker.
 - Broad testing across overhaul mod packs is ongoing.
 - The Railwright station-name combinator intentionally uses vanilla decider-combinator artwork in 0.3.8.
-- Dynamic station naming remains experimental and must be enabled through the per-player mod settings.
+- Dynamic station naming remains experimental; its per-station checkbox is hidden until enabled through the per-player mod settings.
 
 ## Installation for development
 

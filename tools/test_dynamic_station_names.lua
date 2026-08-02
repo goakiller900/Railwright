@@ -361,4 +361,79 @@ equal(custom_item.icon:sub(1, 8), "__base__", "item reuses vanilla icon")
 equal(vanilla_entity.minable.result, "decider-combinator", "vanilla entity remains unchanged")
 equal(vanilla_recipe.results[1].name, "decider-combinator", "vanilla recipe remains unchanged")
 
+local function gui_element(spec, parent)
+    local element = {
+        valid = true,
+        children = {},
+        style = {},
+        parent = parent,
+    }
+    for key, value in pairs(spec or {}) do
+        if key == "style" then
+            element.style_name = value
+        else
+            element[key] = value
+        end
+    end
+
+    element.add = function(child_spec)
+        local child = gui_element(child_spec, element)
+        element.children[#element.children + 1] = child
+        if child.name then element[child.name] = child end
+        return child
+    end
+    element.destroy = function()
+        element.valid = false
+        if element.parent and element.name then element.parent[element.name] = nil end
+    end
+    element.force_auto_center = function() end
+    return element
+end
+
+local function find_gui_element(root, name)
+    if root.name == name then return root end
+    for _, child in ipairs(root.children or {}) do
+        local found = find_gui_element(child, name)
+        if found then return found end
+    end
+end
+
+local Constants = require("scripts.constants")
+local Gui = require("scripts.gui")
+local function gui_player(index, experimental_enabled)
+    return {
+        index = index,
+        gui = { screen = gui_element({ name = "screen" }) },
+        mod_settings = {
+            [Constants.settings.enable_experimental_dynamic_station_names] = {
+                value = experimental_enabled,
+            },
+        },
+    }
+end
+
+local disabled_player = gui_player(20, false)
+Gui.open(disabled_player)
+equal(
+    find_gui_element(disabled_player.gui.screen, Constants.gui.dynamic_station_name),
+    nil,
+    "disabled experimental setting hides dynamic-name checkbox"
+)
+local disabled_gui_settings = Gui.read_settings(disabled_player)
+equal(disabled_gui_settings.dynamic_station_name, false, "hidden dynamic-name checkbox is forced off")
+
+local enabled_player = gui_player(21, true)
+Gui.open(enabled_player)
+local dynamic_checkbox = find_gui_element(enabled_player.gui.screen, Constants.gui.dynamic_station_name)
+equal(dynamic_checkbox ~= nil, true, "enabled experimental setting shows dynamic-name checkbox")
+equal(dynamic_checkbox.state, false, "dynamic-name checkbox defaults off")
+dynamic_checkbox.state = true
+equal(Gui.read_settings(enabled_player).dynamic_station_name, true, "visible dynamic-name checkbox enables generation")
+
+local station_type = find_gui_element(enabled_player.gui.screen, Constants.gui.station_type)
+station_type.selected_index = 5
+Gui.update_visibility(enabled_player)
+equal(dynamic_checkbox.visible, false, "stacker hides dynamic-name checkbox")
+equal(Gui.read_settings(enabled_player).dynamic_station_name, false, "stacker forces dynamic naming off")
+
 print("Dynamic station-name tests passed")

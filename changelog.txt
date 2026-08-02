@@ -5,7 +5,7 @@ Date: 02. 08. 2026
     - Added optional runtime-managed dynamic names for item and fluid stations.
     - Generated dynamic-name stations include one dedicated Railwright station-name combinator with blueprint configuration tags.
   Changes:
-    - Dynamic station naming is marked experimental and moved from the generator window to a default-off per-player mod setting.
+    - Dynamic station naming is marked experimental; a default-off per-player mod setting controls whether its per-station generator checkbox is shown.
     - The existing Station name field is used as the textual base or suffix after the selected resource icon.
     - Exactly one positive item or fluid signal renames the stop using Factorio rich text, such as [item=iron-ore] Load or [fluid=crude-oil] Unload.
     - No resource signal preserves the last valid dynamic name, or the configured station name before the first valid signal.
@@ -14,7 +14,7 @@ Date: 02. 08. 2026
     - Player, robot, script, revive, removal, save, and configuration-change lifecycles are handled by focused runtime code.
     - The custom entity, item, and recipe temporarily reuse vanilla decider-combinator visuals and audio assets.
   Compatibility:
-    - Dynamic station naming is disabled by default and leaves existing station generation unchanged until its experimental mod setting is enabled.
+    - Dynamic station naming is disabled by default and requires both experimental access and the per-station checkbox; existing generated stations are unchanged.
     - The marker recipe is unlocked by circuit-network technology and does not require Space Age.
   Bugfixes:
     - Added deterministic copper-wire chains between generated item and fluid station power poles.
