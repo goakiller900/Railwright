@@ -40,6 +40,11 @@ jobs:
               luac5.4 -p "${file}"
             done
 
+      - name: Test dynamic station naming
+        run: |
+          lua5.4 tools/test_dynamic_station_names.lua
+          lua5.4 tools/test_station_layouts.lua
+
       - name: Read mod metadata
         id: metadata
         shell: bash

@@ -1,5 +1,7 @@
 -- Shared station primitives: train geometry, rails/stops, refuelling, logistic
 -- requests, and circuit-driven station behavior used by item and fluid stations.
+local Constants = require("scripts.constants")
+
 local Common = {}
 
 local function prototype_inventory_size(name, inventory, fallback)
@@ -286,6 +288,29 @@ function Common.add_station_behaviors(builder, settings, source_entity, train_st
         builder:connect(source_entity, first, "green", "circuit", "input")
         builder:connect(first, second, "green", "output", "input")
         builder:connect(second, train_stop, "green", "output", "circuit")
+    end
+
+    if settings.dynamic_station_name then
+        -- Keep the marker on the storage side of one-sided layouts. This stays
+        -- within vanilla combinator wire reach without changing station geometry.
+        local marker_x = source_entity.position.x < -1 and -4.5 or 2.5
+        local marker = builder:add(Constants.entities.station_name_combinator, marker_x, 1.5, {
+            control_behavior = {
+                decider_conditions = {
+                    conditions = {},
+                    outputs = {},
+                },
+            },
+            tags = {
+                railwright_dynamic_station_name = true,
+                railwright_dynamic_name_schema = 1,
+                railwright_base_name = settings.station_name,
+                railwright_station_type = settings.station_type,
+            },
+        })
+
+        builder:connect(source_entity, marker, "green", "circuit", "input")
+        builder:connect(marker, train_stop, "red", "output", "circuit")
     end
 end
 

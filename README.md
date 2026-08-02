@@ -11,9 +11,9 @@ Railwright is an in-game train station blueprint generator for Factorio 2.1.
 
 The project is a modern successor inspired by BurnySc2's original **Train Station Blueprint Creator** (`BurnysTSBC`) and the later web-based Train Station Blueprint Creator. Railwright is a new implementation designed around the current Factorio runtime API and the prototypes that are actually available in the player's mod set.
 
-## Current status — 0.3.6
+## Current status — 0.3.8
 
-Railwright 0.3.6 keeps the confirmed **Left-Right** and **Right-Left** parallel layouts unchanged, while making the generator window clearer with a live blueprint summary, contextual controls, input feedback, and focused tooltips. Native Factorio 2.1 diagonal stackers remain available as an experimental feature.
+Railwright 0.3.8 adds experimental, opt-in dynamic train-stop names for generated item and fluid stations while keeping the existing station and stacker layouts unchanged. Native Factorio 2.1 diagonal stackers remain available as an experimental feature.
 
 When **Deadlock's Stacking Beltboxes & Compact Loaders Continued** is installed, item stations can use compatible compact loaders instead of inserters. Loader stations use direct staggered splitter chains appropriate for 1x1 loaders. This integration is optional; ordinary inserter stations remain the default.
 
@@ -60,6 +60,15 @@ When **Deadlock's Stacking Beltboxes & Compact Loaders Continued** is installed,
 - Manual or dynamic train limits.
 - Circuit-controlled train-stop enable/disable behavior.
 - Optional lamps near power poles.
+- Experimental, opt-in runtime-managed dynamic station names.
+
+### Dynamic station names
+
+Dynamic station names are experimental and disabled by default. To make the option available, open **Settings > Mod settings > Per player** and switch on **[Experimental] Dynamic station names**. The **Dynamic station name (experimental)** checkbox then appears in Railwright's Station behavior section for item and fluid stations and remains unchecked by default. Enable that checkbox for a station to include one dedicated Railwright station-name combinator. Supply exactly one positive item or fluid signal to the combinator input and Railwright's runtime script renames the associated stop with a rich-text resource icon followed by the existing **Station name** value. For example, a base name of `Load` becomes `[item=iron-ore] Load` or `[fluid=crude-oil] Load`.
+
+When the signal disappears, Railwright preserves the last valid dynamic name instead of flickering back to the base name. If more than one different resource is present, the input is ambiguous and the current valid name is preserved. Before any valid resource is seen, the configured station name remains unchanged. The combinator's direct output-red wire identifies its train stop; the runtime reads only the marker's input side and does not pass the resource signal through to the stop.
+
+The dedicated entity currently reuses the vanilla decider-combinator visuals and audio. Its item and recipe are unlocked by the normal circuit-network technology. Actual renaming is performed by Railwright runtime scripting, not by blueprint-only circuit logic.
 
 The native entity and item pickers use the prototypes loaded by the running game. This lets Railwright expose compatible entities and items from the player's actual mod set instead of relying on a hard-coded vanilla item database.
 
@@ -77,10 +86,11 @@ Railwright is still under active development and the generator has many possible
 
 - Diagonal stackers remain experimental and may still expose edge cases with unusual train sizes, lane counts, or modded rail prototypes.
 - Loader-based loading stations can appear offset in the blueprint preview; the entities align correctly after the blueprint is placed in the world. Somehow. We have no idea why this works either.
-- Inserter-based item stations have a minor belt-routing issue that is deferred to a later release.
 - The automatic dynamic train-limit behavior is available, but the web generator's advanced custom arithmetic formula controls are not exposed yet.
 - Unusual modded prototypes may still need additional capability detection even when they appear in a runtime picker.
 - Broad testing across overhaul mod packs is ongoing.
+- The Railwright station-name combinator intentionally uses vanilla decider-combinator artwork in 0.3.8.
+- Dynamic station naming remains experimental; its per-station checkbox is hidden until enabled through the per-player mod settings.
 
 ## Installation for development
 
@@ -93,7 +103,7 @@ railwright
 or with the version suffix:
 
 ```text
-railwright_0.3.6
+railwright_0.3.8
 ```
 
 Start Factorio 2.1 and enable **Railwright** in the mod manager.
@@ -145,7 +155,7 @@ python tools/validate_png.py thumbnail.png graphics/railwright-shortcut-x56.png
 To preview the GitHub release notes generated from a changelog entry:
 
 ```text
-python tools/release_notes.py 0.3.6
+python tools/release_notes.py 0.3.8
 ```
 
 ## Usage
@@ -160,6 +170,8 @@ python tools/release_notes.py 0.3.6
 
 ## Contributing
 
+Railwright is a volunteer project, and contributions are warmly welcome but never expected. If you feel like fixing a bug, adding a feature, improving documentation or localisation, or sharing useful test results, please open an issue or pull request. Contribute as much or as little as you want—there is no obligation. :)
+
 Feature and fix work should happen on branches rather than directly on `main`. Blueprint-generation reports should include the Railwright version, Factorio version, relevant mods, station settings, and the generated blueprint when practical.
 
 Diagonal stacker contributions are especially welcome. If you have a reliable modern Factorio 2.1 solution, please open a pull request so it can be tested across different train lengths and lane counts.
@@ -170,7 +182,8 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the development workflow. GitHub is
 
 ```text
 control.lua                         Runtime event wiring
-data.lua                            Shortcut-bar prototype definitions
+data.lua                            Data-stage prototype registration
+prototypes/station-name-combinator.lua Dedicated marker entity, item, recipe, and unlock
 info.json                           Factorio mod metadata
 changelog.txt                       Factorio-native release changelog
 graphics/                           In-game shortcut and UI graphics
@@ -178,6 +191,7 @@ locale/                             Localisation
 scripts/constants.lua               Shared identifiers and option lists
 scripts/state.lua                   Persistent per-player settings and migrations
 scripts/gui.lua                     In-game configuration interface
+scripts/dynamic_station_names.lua   Runtime marker registration and stop naming
 scripts/generator.lua               Generator dispatch and validation
 scripts/generator_builder.lua       Shared blueprint entity/wire builder
 scripts/generator_common.lua        Shared train and station behavior logic

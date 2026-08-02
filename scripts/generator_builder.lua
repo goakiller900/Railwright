@@ -16,6 +16,7 @@ end
 function Builder.new()
     return setmetatable({
         entities = {},
+        copper_wire_keys = {},
     }, Builder)
 end
 
@@ -74,6 +75,31 @@ end
 function Builder:connect_chain(entities, color)
     for index = 2, #entities do
         self:connect(entities[index - 1], entities[index], color)
+    end
+end
+
+function Builder:connect_copper(entity_a, entity_b)
+    if not entity_a or not entity_b or entity_a == entity_b then return end
+
+    local low = math.min(entity_a.entity_number, entity_b.entity_number)
+    local high = math.max(entity_a.entity_number, entity_b.entity_number)
+    local key = low .. ":" .. high
+    if self.copper_wire_keys[key] then return end
+    self.copper_wire_keys[key] = true
+
+    local connector = defines.wire_connector_id.pole_copper
+    entity_a.wires = entity_a.wires or {}
+    entity_a.wires[#entity_a.wires + 1] = {
+        entity_a.entity_number,
+        connector,
+        entity_b.entity_number,
+        connector,
+    }
+end
+
+function Builder:connect_copper_chain(entities)
+    for index = 2, #entities do
+        self:connect_copper(entities[index - 1], entities[index])
     end
 end
 

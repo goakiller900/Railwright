@@ -10,6 +10,11 @@ local function diagonal_setting_enabled(player)
     return setting ~= nil and setting.value == true
 end
 
+local function dynamic_station_names_enabled(player)
+    local setting = player.mod_settings[Constants.settings.enable_experimental_dynamic_station_names]
+    return setting ~= nil and setting.value == true
+end
+
 local function find_index(values, selected, fallback)
     for index, value in ipairs(values) do
         if value == selected then return index end
@@ -210,6 +215,7 @@ function Gui.update_visibility(player)
     set_row_visible(frame, Constants.gui.madzuri, item_station and not using_loaders)
 
     set_row_visible(frame, Constants.gui.station_name, not stacker)
+    set_row_visible(frame, Constants.gui.dynamic_station_name, not stacker)
     set_row_visible(frame, Constants.gui.double_headed, not stacker)
     set_row_visible(frame, Constants.gui.include_train, not stacker)
 
@@ -386,6 +392,15 @@ function Gui.open(player)
     checkbox(fluid, { "railwright.connect-pipes" }, Constants.gui.connect_pipes, settings.connect_pipes)
 
     local _, behavior = add_section(scroll, Constants.gui.behavior_group, { "railwright.section-behavior" })
+    if dynamic_station_names_enabled(player) then
+        checkbox(
+            behavior,
+            { "railwright.dynamic-station-name-experimental" },
+            Constants.gui.dynamic_station_name,
+            settings.dynamic_station_name,
+            { "railwright.dynamic-station-name-tooltip" }
+        )
+    end
     checkbox(behavior, { "railwright.connect-green" }, Constants.gui.connect_green, settings.connect_green)
     checkbox(behavior, { "railwright.connect-both-green" }, Constants.gui.connect_both_green, settings.connect_both_green)
     checkbox(behavior, { "railwright.connect-red" }, Constants.gui.connect_red, settings.connect_red)
@@ -528,10 +543,17 @@ function Gui.read_settings(player)
     local belt_flow_index = get(Constants.gui.belt_flow).selected_index
     local transfer_mode = get(Constants.gui.transfer_mode)
     local loader = get(Constants.gui.loader)
+    local station_type = Constants.station_type_keys[station_index] or "loading"
+    local dynamic_station_name = get(Constants.gui.dynamic_station_name)
 
     return {
-        station_type = Constants.station_type_keys[station_index] or "loading",
+        station_type = station_type,
         station_name = get(Constants.gui.station_name).text,
+        dynamic_station_name = station_type ~= "stacker"
+            and dynamic_station_names_enabled(player)
+            and dynamic_station_name
+            and dynamic_station_name.state
+            or false,
         locomotives = locomotives,
         cargo_wagons = cargo_wagons,
         double_headed = get(Constants.gui.double_headed).state,

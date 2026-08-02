@@ -2,6 +2,7 @@
 -- state, GUI input, validation, and blueprint generation.
 local Constants = require("scripts.constants")
 local Debug = require("scripts.generator_debug")
+local DynamicStationNames = require("scripts.dynamic_station_names")
 local Generator = require("scripts.generator")
 local Gui = require("scripts.gui")
 local State = require("scripts.state")
@@ -42,8 +43,38 @@ commands.add_command(DEBUG_COMMAND, "Toggle Railwright stacker blueprint diagnos
     end
 end)
 
-script.on_init(setup_all_players)
-script.on_configuration_changed(setup_all_players)
+script.on_init(function()
+    setup_all_players()
+    DynamicStationNames.on_init()
+end)
+
+script.on_configuration_changed(function()
+    setup_all_players()
+    DynamicStationNames.on_configuration_changed()
+end)
+
+script.on_event({
+    defines.events.on_built_entity,
+    defines.events.on_robot_built_entity,
+    defines.events.script_raised_built,
+    defines.events.script_raised_revive,
+}, DynamicStationNames.on_built)
+
+if defines.events.on_blueprint_settings_pasted then
+    script.on_event(defines.events.on_blueprint_settings_pasted, DynamicStationNames.on_blueprint_settings_pasted)
+end
+
+script.on_event(defines.events.on_entity_settings_pasted, DynamicStationNames.on_entity_settings_pasted)
+script.on_event(defines.events.on_player_setup_blueprint, DynamicStationNames.on_player_setup_blueprint)
+
+script.on_event({
+    defines.events.on_player_mined_entity,
+    defines.events.on_robot_mined_entity,
+    defines.events.on_entity_died,
+    defines.events.script_raised_destroy,
+}, DynamicStationNames.on_removed)
+
+script.on_nth_tick(DynamicStationNames.update_interval, DynamicStationNames.on_nth_tick)
 
 script.on_event(defines.events.on_player_created, function(event)
     local player = game.get_player(event.player_index)
@@ -131,7 +162,9 @@ script.on_event(defines.events.on_gui_closed, function(event)
 end)
 
 script.on_event(defines.events.on_runtime_mod_setting_changed, function(event)
-    if event.setting ~= Constants.settings.enable_experimental_diagonal or not event.player_index then return end
+    local affects_generator = event.setting == Constants.settings.enable_experimental_diagonal
+        or event.setting == Constants.settings.enable_experimental_dynamic_station_names
+    if not affects_generator or not event.player_index then return end
 
     local player = game.get_player(event.player_index)
     if player then Gui.close(player) end

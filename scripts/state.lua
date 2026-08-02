@@ -13,6 +13,7 @@ end
 local default_settings = {
     station_type = "loading",
     station_name = "Railwright Station",
+    dynamic_station_name = false,
     locomotives = 1,
     cargo_wagons = 2,
     double_headed = true,
