@@ -1,0 +1,8 @@
+{
+  "name": "railwright-test",
+  "version": "0.0.0",
+  "title": "Railwright automated runtime test",
+  "author": "Railwright CI",
+  "factorio_version": "2.1",
+  "dependencies": ["base >= 2.1.0", "railwright = 0.3.8"]
+}

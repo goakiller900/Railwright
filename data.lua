@@ -1,5 +1,7 @@
--- Data-stage entry point: registers the shortcut-bar prototype. Runtime click
--- handling lives in control.lua because shortcuts cannot execute generators here.
+-- Data-stage entry point: registers Railwright prototypes. Runtime click and
+-- entity handling live in control.lua.
+require("prototypes.station-name-combinator")
+
 data:extend({
     {
         type = "shortcut",

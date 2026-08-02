@@ -210,6 +210,7 @@ function Gui.update_visibility(player)
     set_row_visible(frame, Constants.gui.madzuri, item_station and not using_loaders)
 
     set_row_visible(frame, Constants.gui.station_name, not stacker)
+    set_row_visible(frame, Constants.gui.dynamic_station_name, not stacker)
     set_row_visible(frame, Constants.gui.double_headed, not stacker)
     set_row_visible(frame, Constants.gui.include_train, not stacker)
 
@@ -386,6 +387,13 @@ function Gui.open(player)
     checkbox(fluid, { "railwright.connect-pipes" }, Constants.gui.connect_pipes, settings.connect_pipes)
 
     local _, behavior = add_section(scroll, Constants.gui.behavior_group, { "railwright.section-behavior" })
+    checkbox(
+        behavior,
+        { "railwright.dynamic-station-name" },
+        Constants.gui.dynamic_station_name,
+        settings.dynamic_station_name,
+        { "railwright.dynamic-station-name-tooltip" }
+    )
     checkbox(behavior, { "railwright.connect-green" }, Constants.gui.connect_green, settings.connect_green)
     checkbox(behavior, { "railwright.connect-both-green" }, Constants.gui.connect_both_green, settings.connect_both_green)
     checkbox(behavior, { "railwright.connect-red" }, Constants.gui.connect_red, settings.connect_red)
@@ -532,6 +540,7 @@ function Gui.read_settings(player)
     return {
         station_type = Constants.station_type_keys[station_index] or "loading",
         station_name = get(Constants.gui.station_name).text,
+        dynamic_station_name = get(Constants.gui.dynamic_station_name).state,
         locomotives = locomotives,
         cargo_wagons = cargo_wagons,
         double_headed = get(Constants.gui.double_headed).state,

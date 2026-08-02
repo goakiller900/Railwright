@@ -1,4 +1,23 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.8
+Date: 02. 08. 2026
+  Major Features:
+    - Added optional runtime-managed dynamic names for item and fluid stations.
+    - Generated dynamic-name stations include one dedicated Railwright station-name combinator with blueprint configuration tags.
+  Changes:
+    - The existing Station name field is used as the textual base or suffix after the selected resource icon.
+    - Exactly one positive item or fluid signal renames the stop using Factorio rich text, such as [item=iron-ore] Load or [fluid=crude-oil] Unload.
+    - No resource signal preserves the last valid dynamic name, or the configured station name before the first valid signal.
+    - Multiple different resource signals are treated as ambiguous and never selected arbitrarily.
+    - The marker reads only its input circuit connectors and uses a reserved direct output-red connection to identify one train stop.
+    - Player, robot, script, revive, removal, save, and configuration-change lifecycles are handled by focused runtime code.
+    - The custom entity, item, and recipe temporarily reuse vanilla decider-combinator visuals and audio assets.
+  Compatibility:
+    - Dynamic station naming is disabled by default and leaves existing station generation unchanged when not selected.
+    - The marker recipe is unlocked by circuit-network technology and does not require Space Age.
+  Notes:
+    - Railwright runtime scripting performs the train-stop rename; blueprint circuit logic alone cannot rename a stop.
+---------------------------------------------------------------------------------------------------
 Version: 0.3.7
 Date: 01. 08. 2026
   Bugfixes:
