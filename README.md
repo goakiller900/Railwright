@@ -170,6 +170,8 @@ python tools/release_notes.py 0.3.8
 
 ## Contributing
 
+Railwright is a volunteer project, and contributions are warmly welcome but never expected. If you feel like fixing a bug, adding a feature, improving documentation or localisation, or sharing useful test results, please open an issue or pull request. Contribute as much or as little as you want—there is no obligation. :)
+
 Feature and fix work should happen on branches rather than directly on `main`. Blueprint-generation reports should include the Railwright version, Factorio version, relevant mods, station settings, and the generated blueprint when practical.
 
 Diagonal stacker contributions are especially welcome. If you have a reliable modern Factorio 2.1 solution, please open a pull request so it can be tested across different train lengths and lane counts.
