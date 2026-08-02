@@ -110,6 +110,7 @@ function Fluid.generate(settings)
             builder:add("small-lamp", side_x(settings, 1.5), y)
         end
     end
+    builder:connect_copper_chain(poles)
 
     local tanks = serpentine_tanks(tank_rows_for_wiring)
     if settings.connect_green then builder:connect_chain(tanks, "green") end

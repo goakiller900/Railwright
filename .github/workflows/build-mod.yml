@@ -41,7 +41,9 @@ jobs:
             done
 
       - name: Test dynamic station naming
-        run: lua5.4 tools/test_dynamic_station_names.lua
+        run: |
+          lua5.4 tools/test_dynamic_station_names.lua
+          lua5.4 tools/test_generator_layout.lua
 
       - name: Read mod metadata
         id: metadata

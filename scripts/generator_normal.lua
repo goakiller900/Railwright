@@ -95,6 +95,9 @@ local function add_poles_and_lamps(builder, settings, right_poles, left_poles)
             if settings.lamps then builder:add("small-lamp", mirror_x(1.5), y) end
         end
     end
+
+    builder:connect_copper_chain(right_poles)
+    builder:connect_copper_chain(left_poles)
 end
 
 local loading_belt_directions = {
@@ -152,8 +155,13 @@ local function add_vertical_belts(builder, settings, splitters, right_side, x_of
 
         local cursor_x = from_x
         while (right_side and cursor_x < x) or ((not right_side) and cursor_x > x) do
-            builder:add(settings.belt_name, cursor_x, splitter.position.y, { direction = horizontal_direction })
-            cursor_x = cursor_x + (right_side and 1 or -1)
+            local next_x = cursor_x + (right_side and 1 or -1)
+            local direction = horizontal_direction
+            -- Loading branches join the longitudinal collector by turning on
+            -- their final tile. Unloading keeps its existing outward topology.
+            if loading and next_x == x then direction = belt_direction end
+            builder:add(settings.belt_name, cursor_x, splitter.position.y, { direction = direction })
+            cursor_x = next_x
         end
 
         x = x + (right_side and 1 or -1)
@@ -213,14 +221,40 @@ local function inserter_stack_size(settings)
     return settings._inserter_stack_size or 1
 end
 
+local function nearest_entity(entities, position)
+    local nearest
+    local nearest_distance
+    for _, entity in ipairs(entities) do
+        local dx = entity.position.x - position.x
+        local dy = entity.position.y - position.y
+        local distance = dx * dx + dy * dy
+        if not nearest_distance
+            or distance < nearest_distance
+            or (distance == nearest_distance and entity.entity_number < nearest.entity_number) then
+            nearest = entity
+            nearest_distance = distance
+        end
+    end
+    return nearest
+end
+
 local function add_madzuri(builder, settings, chests, inserters, right_side)
     -- Madzuri balancing compares each chest with the side average and enables its
     -- outer inserter only when moving items helps restore that balance.
     if not settings.madzuri or #chests == 0 or #inserters == 0 then return end
 
     local side_multiplier = settings.sides == "both" and settings.connect_both_green and 2 or 1
-    local arithmetic_x = right_side and (settings.lamps and 2.5 or 1.5) or (settings.lamps and -5.5 or -4.5)
-    local arithmetic = builder:add("arithmetic-combinator", arithmetic_x, 11.5, {
+    local first_chest = chests[1]
+    local first_inserter = inserters[1]
+    -- Derive a clear service position from the first transfer row: two tiles
+    -- outward from its outer inserter and one-and-a-half tiles before the row.
+    -- This keeps the horizontal combinator clear of transfer entities, the
+    -- boundary pole/lamp, refuelling, and the station-behavior combinators.
+    local arithmetic_position = {
+        x = first_inserter.position.x + (right_side and 2 or -2),
+        y = first_chest.position.y - 1.5,
+    }
+    local arithmetic = builder:add("arithmetic-combinator", arithmetic_position.x, arithmetic_position.y, {
         direction = right_side and defines.direction.east or defines.direction.west,
         control_behavior = {
             arithmetic_conditions = {
@@ -232,8 +266,10 @@ local function add_madzuri(builder, settings, chests, inserters, right_side)
         },
     })
 
-    builder:connect(chests[math.min(6, #chests)], arithmetic, "green", "circuit", "input")
-    builder:connect(arithmetic, inserters[math.min(6, #inserters)], "green", "output", "circuit")
+    local chest_anchor = nearest_entity(chests, arithmetic_position)
+    local inserter_anchor = nearest_entity(inserters, arithmetic_position)
+    builder:connect(chest_anchor, arithmetic, "green", "circuit", "input")
+    builder:connect(arithmetic, inserter_anchor, "green", "output", "circuit")
 
     for index, chest in ipairs(chests) do
         if inserters[index] then builder:connect(chest, inserters[index], "red") end
