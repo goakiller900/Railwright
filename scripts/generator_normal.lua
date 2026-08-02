@@ -145,7 +145,14 @@ local function add_vertical_belts(builder, settings, splitters, right_side, x_of
 
         local y = anchor_y
         while (step > 0 and y <= splitter.position.y) or (step < 0 and y >= splitter.position.y) do
-            builder:add(settings.belt_name, x, y, { direction = belt_direction })
+            -- At loading stations, the tile beside the splitter belongs to the
+            -- wagon branch rather than the longitudinal collector. It is added
+            -- below with the rest of that branch so every staggered transition
+            -- points toward the collector. Unloading retains its existing
+            -- inclusive collector endpoint.
+            if not loading or y ~= splitter.position.y then
+                builder:add(settings.belt_name, x, y, { direction = belt_direction })
+            end
             y = y + step
         end
 
@@ -154,14 +161,15 @@ local function add_vertical_belts(builder, settings, splitters, right_side, x_of
         if loading then horizontal_direction = mirror_direction(horizontal_direction) end
 
         local cursor_x = from_x
-        while (right_side and cursor_x < x) or ((not right_side) and cursor_x > x) do
-            local next_x = cursor_x + (right_side and 1 or -1)
-            local direction = horizontal_direction
-            -- Loading branches join the longitudinal collector by turning on
-            -- their final tile. Unloading keeps its existing outward topology.
-            if loading and next_x == x then direction = belt_direction end
-            builder:add(settings.belt_name, cursor_x, splitter.position.y, { direction = direction })
-            cursor_x = next_x
+        local function branch_has_tile()
+            if right_side then return loading and cursor_x <= x or cursor_x < x end
+            return loading and cursor_x >= x or cursor_x > x
+        end
+        while branch_has_tile() do
+            builder:add(settings.belt_name, cursor_x, splitter.position.y, {
+                direction = horizontal_direction,
+            })
+            cursor_x = cursor_x + (right_side and 1 or -1)
         end
 
         x = x + (right_side and 1 or -1)
@@ -246,16 +254,16 @@ local function add_madzuri(builder, settings, chests, inserters, right_side)
     local side_multiplier = settings.sides == "both" and settings.connect_both_green and 2 or 1
     local first_chest = chests[1]
     local first_inserter = inserters[1]
-    -- Derive a clear service position from the first transfer row: two tiles
+    -- Derive a clear service position from the first transfer row: one tile
     -- outward from its outer inserter and one-and-a-half tiles before the row.
-    -- This keeps the horizontal combinator clear of transfer entities, the
+    -- This keeps the station-aligned combinator clear of transfer entities, the
     -- boundary pole/lamp, refuelling, and the station-behavior combinators.
     local arithmetic_position = {
-        x = first_inserter.position.x + (right_side and 2 or -2),
+        x = first_inserter.position.x + (right_side and 1 or -1),
         y = first_chest.position.y - 1.5,
     }
     local arithmetic = builder:add("arithmetic-combinator", arithmetic_position.x, arithmetic_position.y, {
-        direction = right_side and defines.direction.east or defines.direction.west,
+        direction = defines.direction.north,
         control_behavior = {
             arithmetic_conditions = {
                 first_signal = { type = "virtual", name = "signal-each" },

@@ -17,7 +17,7 @@ Date: 02. 08. 2026
     - The marker recipe is unlocked by circuit-network technology and does not require Space Age.
   Bugfixes:
     - Added deterministic copper-wire chains between generated item and fluid station power poles.
-    - Corrected loading-station branch belts so their collector joins turn along the longitudinal collector without changing unloading topology.
+    - Corrected loading-station branch belts so staggered transitions feed into the longitudinal collector without changing unloading topology.
     - Moved Madzuri arithmetic combinators to geometry-derived service positions so all chest and outer-inserter rows remain placeable and wired.
   Notes:
     - Railwright runtime scripting performs the train-stop rename; blueprint circuit logic alone cannot rename a stop.

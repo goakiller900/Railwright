@@ -307,6 +307,32 @@ local function assert_no_madzuri_collisions(entities, label)
     end
 end
 
+local function assert_madzuri_geometry(entities, settings, label)
+    local cargo_start = settings.locomotives * 7 - 3
+    local expected_y = cargo_start + 0.5
+    local expected = {}
+    if settings.sides == "right" or settings.sides == "both" then
+        expected[#expected + 1] = { x = 3.5, y = expected_y }
+    end
+    if settings.sides == "left" or settings.sides == "both" then
+        expected[#expected + 1] = { x = -5.5, y = expected_y }
+    end
+
+    local arithmetic = madzuri_entities(entities)
+    equal(#arithmetic, #expected, label .. " Madzuri geometry count")
+    for _, position in ipairs(expected) do
+        local entity = entity_at(entities, "arithmetic-combinator", position.x, position.y)
+        truthy(entity, string.format(
+            "%s missing station-aligned Madzuri at (%s,%s)",
+            label,
+            position.x,
+            position.y
+        ))
+        truthy(is_madzuri(entity), label .. " expected arithmetic is not the Madzuri combinator")
+        equal(entity.direction, defines.direction.north, label .. " Madzuri direction")
+    end
+end
+
 local function side_geometry(side)
     if side == "right" then return 1.5, 2.5, 0.5 end
     return -3.5, -4.5, -2.5
@@ -368,7 +394,13 @@ local function mirror_x(x) return -x - 2 end
 
 local function assert_collector_directions(settings, right_side)
     local entities = Normal.generate(settings)
-    local splitters = entities_named(entities, settings.splitter_name)
+    local splitters = {}
+    for _, splitter in ipairs(entities_named(entities, settings.splitter_name)) do
+        if (right_side and splitter.position.x > 0)
+            or ((not right_side) and splitter.position.x < 0) then
+            splitters[#splitters + 1] = splitter
+        end
+    end
     table.sort(splitters, function(a, b) return a.position.y < b.position.y end)
     if settings.belt_flow == "back" then
         local reversed = {}
@@ -390,19 +422,38 @@ local function assert_collector_directions(settings, right_side)
         horizontal_direction = right_side and defines.direction.east or defines.direction.west
     end
 
+    local belt_positions = {}
+    for _, belt in ipairs(entities_named(entities, settings.belt_name)) do
+        local key = belt.position.x .. ":" .. belt.position.y
+        truthy(not belt_positions[key], settings.station_type .. " duplicate belt at " .. key)
+        belt_positions[key] = true
+    end
+
+    local anchor_y = splitters[1].position.y
     for index, splitter in ipairs(splitters) do
         local base_x = 5.5 + index - 1
         local collector_x = right_side and base_x or mirror_x(base_x)
-        local collector = entity_at(entities, settings.belt_name, collector_x, splitter.position.y)
-        truthy(collector, settings.station_type .. " missing collector belt")
-        equal(collector.direction, collector_direction, settings.station_type .. " collector direction")
+        local step_y = splitter.position.y >= anchor_y and 1 or -1
+        local y = anchor_y
+        while (step_y > 0 and y <= splitter.position.y) or (step_y < 0 and y >= splitter.position.y) do
+            if not loading or y ~= splitter.position.y then
+                local collector = entity_at(entities, settings.belt_name, collector_x, y)
+                truthy(collector, settings.station_type .. " missing collector belt")
+                equal(collector.direction, collector_direction, settings.station_type .. " collector direction")
+            end
+            y = y + step_y
+        end
 
-        if index > 1 then
-            local join_x = collector_x + (right_side and -1 or 1)
-            local join = entity_at(entities, settings.belt_name, join_x, splitter.position.y)
-            truthy(join, settings.station_type .. " missing branch-to-collector join")
-            local expected = loading and collector_direction or horizontal_direction
-            equal(join.direction, expected, settings.station_type .. " branch-to-collector direction")
+        local branch_x = splitter.position.x + (right_side and 1 or -1)
+        local function branch_has_tile()
+            if right_side then return loading and branch_x <= collector_x or branch_x < collector_x end
+            return loading and branch_x >= collector_x or branch_x > collector_x
+        end
+        while branch_has_tile() do
+            local branch = entity_at(entities, settings.belt_name, branch_x, splitter.position.y)
+            truthy(branch, settings.station_type .. " missing branch transition belt")
+            equal(branch.direction, horizontal_direction, settings.station_type .. " branch transition direction")
+            branch_x = branch_x + (right_side and 1 or -1)
         end
     end
 end
@@ -430,15 +481,24 @@ for _, station_type in ipairs({ "fluid-loading", "fluid-unloading" }) do
     end
 end
 
--- Loading join tiles turn with the collector; unloading retains its existing topology.
+-- Loading transition tiles feed into the collector; unloading retains its existing topology.
 for _, station_type in ipairs({ "loading", "unloading" }) do
-    for _, side in ipairs({ "right", "left" }) do
-        for _, belt_flow in ipairs({ "front", "back" }) do
-            assert_collector_directions(item_settings(station_type, side, {
-                belt_flow = belt_flow,
-                refill_enabled = false,
-                madzuri = false,
-            }), side == "right")
+    for _, sides in ipairs({ "right", "left", "both" }) do
+        for _, cargo_wagons in ipairs({ 1, 3, 5 }) do
+            for _, belt_flow in ipairs({ "front", "back" }) do
+                local settings = item_settings(station_type, sides, {
+                    belt_flow = belt_flow,
+                    cargo_wagons = cargo_wagons,
+                    refill_enabled = false,
+                    madzuri = false,
+                })
+                if sides == "right" or sides == "both" then
+                    assert_collector_directions(settings, true)
+                end
+                if sides == "left" or sides == "both" then
+                    assert_collector_directions(settings, false)
+                end
+            end
         end
     end
 end
@@ -462,6 +522,7 @@ for _, station_type in ipairs({ "loading", "unloading" }) do
                         local entities = Normal.generate(settings)
                         local label = table.concat({ station_type, sides, locomotives, tostring(lamps), tostring(dynamic_name), behavior }, " ")
                         equal(#madzuri_entities(entities), sides == "both" and 2 or 1, label .. " Madzuri count")
+                        assert_madzuri_geometry(entities, settings, label)
                         assert_no_madzuri_collisions(entities, label)
                     end
                 end
