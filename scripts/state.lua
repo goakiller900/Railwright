@@ -104,11 +104,12 @@ end
 
 local function clear_missing_entity_prototypes(settings)
     local entity_prototypes = prototypes and prototypes.entity
-    if not entity_prototypes then return end
 
     for _, key in ipairs(entity_setting_keys) do
         local name = settings[key]
-        if name and name ~= "" and not entity_prototypes[name] then
+        if name == ""
+            or (name ~= nil and type(name) ~= "string")
+            or (entity_prototypes and name and not entity_prototypes[name]) then
             settings[key] = nil
         end
     end
