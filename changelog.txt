@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.9
+Date: 28. 08. 2026
+  Bugfixes:
+    - Prevented the Railwright window from crashing when empty, cleared, or removed entity selections were restored from saved player settings.
+    - Saved loader selections that no longer exist now automatically fall back to inserter transfer mode.
+    - Invalid required entity selections are cleared before the GUI opens and are reported safely before blueprint generation.
+  Compatibility:
+    - Existing saves are sanitized automatically while valid vanilla and modded entity selections are preserved.
+---------------------------------------------------------------------------------------------------
 Version: 0.3.8
 Date: 02. 08. 2026
   Major Features:

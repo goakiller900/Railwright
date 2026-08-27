@@ -85,7 +85,7 @@ local function entity_picker(table_element, caption, name, value, filters, toolt
         type = "choose-elem-button",
         name = name,
         elem_type = "entity",
-        entity = value,
+        entity = type(value) == "string" and prototypes.entity[value] and value or nil,
     })
     if filters then picker.elem_filters = filters end
     return set_tooltip(picker, tooltip)
@@ -562,7 +562,7 @@ function Gui.read_settings(player)
         sides = Constants.side_keys[side_index] or "both",
         transfer_mode = transfer_mode and Constants.transfer_mode_keys[transfer_mode.selected_index] or "inserters",
         inserter_name = get(Constants.gui.inserter).elem_value,
-        loader_name = loader and loader.elem_value or "",
+        loader_name = loader and loader.elem_value or nil,
         chest_name = get(Constants.gui.chest).elem_value,
         belt_name = get(Constants.gui.belt).elem_value,
         splitter_name = get(Constants.gui.splitter).elem_value,
