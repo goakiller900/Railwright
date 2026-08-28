@@ -1,10 +1,15 @@
 -- Persistent per-player configuration and lightweight save migration helpers.
 -- New settings belong in default_settings so older saves receive them on access.
+local PrototypeUtils = require("scripts.prototype_utils")
+
 local State = {}
+
+local FILTER_SLOT_COUNT = 5
+local REQUEST_SLOT_COUNT = 12
 
 local function make_request_items()
     local items = {}
-    for index = 1, 12 do
+    for index = 1, REQUEST_SLOT_COUNT do
         items[index] = { name = "", count = 100 }
     end
     return items
@@ -121,9 +126,36 @@ local function clear_missing_entity_prototypes(settings)
     end
 end
 
+local function normalize_item_settings(settings)
+    local filter_items = type(settings.filter_items) == "table" and settings.filter_items or {}
+    local normalized_filters = {}
+    for index = 1, FILTER_SLOT_COUNT do
+        normalized_filters[index] = PrototypeUtils.item_name_or_nil(filter_items[index]) or ""
+    end
+    settings.filter_items = normalized_filters
+
+    local request_items = type(settings.request_items) == "table" and settings.request_items or {}
+    local normalized_requests = {}
+    for index = 1, REQUEST_SLOT_COUNT do
+        local request = type(request_items[index]) == "table" and request_items[index] or {}
+        normalized_requests[index] = {
+            name = PrototypeUtils.item_name_or_nil(request.name) or "",
+            count = request.count == nil and 100 or request.count,
+        }
+    end
+    settings.request_items = normalized_requests
+
+    if not PrototypeUtils.is_locomotive_fuel(settings.refill_fuel) then
+        settings.refill_fuel = PrototypeUtils.is_locomotive_fuel(default_settings.refill_fuel)
+            and default_settings.refill_fuel
+            or nil
+    end
+end
+
 local function normalize_settings(settings)
     merge_defaults(settings, default_settings)
     clear_missing_entity_prototypes(settings)
+    normalize_item_settings(settings)
 
     if not valid_stacker_types[settings.stacker_type] then
         settings.stacker_type = "Left-Right"

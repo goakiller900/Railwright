@@ -1,6 +1,8 @@
 -- Builds the runtime configuration window and converts its controls back into a
 -- validated settings-shaped table. Geometry generation never depends on GUI nodes.
 local Constants = require("scripts.constants")
+local PrototypeUtils = require("scripts.prototype_utils")
+local SettingsContext = require("scripts.settings_context")
 local State = require("scripts.state")
 
 local Gui = {}
@@ -91,13 +93,15 @@ local function entity_picker(table_element, caption, name, value, filters, toolt
     return set_tooltip(picker, tooltip)
 end
 
-local function item_picker(table_element, caption, name, value)
-    return add_row(table_element, caption, {
+local function item_picker(table_element, caption, name, value, filters)
+    local picker = add_row(table_element, caption, {
         type = "choose-elem-button",
         name = name,
         elem_type = "item",
-        item = value ~= "" and value or nil,
+        item = PrototypeUtils.item_name_or_nil(value),
     })
+    if filters then picker.elem_filters = filters end
+    return picker
 end
 
 local function textfield(table_element, caption, name, value, numeric, tooltip)
@@ -150,13 +154,13 @@ function Gui.update_summary(player)
     local station_type = Constants.station_type_keys[station.selected_index] or "loading"
     local locomotives = positive_integer_text(locomotives_element)
     local wagons = positive_integer_text(wagons_element)
-    local valid = locomotives ~= nil and wagons ~= nil
+    local parsed_settings, validation_message = Gui.read_settings(player)
+    local valid = parsed_settings ~= nil
 
     if station_type == "stacker" then
         local lanes = positive_integer_text(find_element(frame, Constants.gui.stacker_lanes))
         local direction = find_element(frame, Constants.gui.stacker_type)
         local diagonal = find_element(frame, Constants.gui.stacker_diagonal)
-        valid = valid and lanes ~= nil
         summary.caption = {
             "railwright.summary-stacker",
             diagonal and diagonal.state and { "railwright.layout-diagonal" } or { "railwright.layout-parallel" },
@@ -175,7 +179,7 @@ function Gui.update_summary(player)
     end
 
     generate.enabled = valid
-    validation.caption = valid and { "railwright.ready" } or { "railwright.invalid-train-size" }
+    validation.caption = valid and { "railwright.ready" } or validation_message or { "railwright.invalid-train-size" }
     validation.style.font_color = valid and { 0.45, 0.9, 0.45 } or { 1, 0.45, 0.35 }
     generate.tooltip = valid and { "railwright.generate-tooltip" } or { "railwright.generate-disabled-tooltip" }
 end
@@ -348,7 +352,7 @@ function Gui.open(player)
             type = "choose-elem-button",
             name = Constants.gui.filter_item_prefix .. index,
             elem_type = "item",
-            item = settings.filter_items[index] ~= "" and settings.filter_items[index] or nil,
+            item = PrototypeUtils.item_name_or_nil(settings.filter_items[index]),
         })
     end
 
@@ -364,7 +368,7 @@ function Gui.open(player)
             type = "choose-elem-button",
             name = Constants.gui.request_item_prefix .. index,
             elem_type = "item",
-            item = request.name ~= "" and request.name or nil,
+            item = PrototypeUtils.item_name_or_nil(request.name),
         })
         request_table.add({
             type = "textfield",
@@ -406,7 +410,13 @@ function Gui.open(player)
     checkbox(behavior, { "railwright.connect-red" }, Constants.gui.connect_red, settings.connect_red)
     checkbox(behavior, { "railwright.connect-both-red" }, Constants.gui.connect_both_red, settings.connect_both_red)
     checkbox(behavior, { "railwright.refill-enabled" }, Constants.gui.refill_enabled, settings.refill_enabled)
-    item_picker(behavior, { "railwright.refill-fuel" }, Constants.gui.refill_fuel, settings.refill_fuel)
+    item_picker(
+        behavior,
+        { "railwright.refill-fuel" },
+        Constants.gui.refill_fuel,
+        settings.refill_fuel,
+        PrototypeUtils.locomotive_fuel_filters()
+    )
     textfield(behavior, { "railwright.refill-amount" }, Constants.gui.refill_amount, settings.refill_amount, true)
     dropdown(behavior, { "railwright.train-limit" }, Constants.gui.train_limit, Constants.train_limits,
         find_index(Constants.train_limits, settings.train_limit), { "railwright.train-limit-tooltip" })
@@ -472,69 +482,14 @@ function Gui.toggle(player)
     if player.gui.screen[Constants.gui.frame] then Gui.close(player) else Gui.open(player) end
 end
 
-local function parse_integer(element, label, minimum)
-    local value = tonumber(element.text)
-    if not value or value ~= math.floor(value) or value < minimum then
-        return nil, string.format("%s must be a whole number of at least %d.", label, minimum)
-    end
-    return value
-end
-
 function Gui.read_settings(player)
-    -- Parse all primitive values here; prototype/type validation happens later in
-    -- generator.lua where it can also protect non-GUI callers.
+    -- Parse controls in station/feature context. Prototype/type validation also
+    -- runs in generator.lua so non-GUI callers receive the same protection.
     local frame = player.gui.screen[Constants.gui.frame]
     if not frame then return nil, "Railwright window is not open." end
 
     local function get(name)
         return find_element(frame, name)
-    end
-
-    local locomotives, error_message = parse_integer(get(Constants.gui.locomotives), "Locomotives", 1)
-    if not locomotives then return nil, error_message end
-
-    local cargo_wagons
-    cargo_wagons, error_message = parse_integer(get(Constants.gui.cargo_wagons), "Wagons", 1)
-    if not cargo_wagons then return nil, error_message end
-
-    local chest_limit
-    chest_limit, error_message = parse_integer(get(Constants.gui.chest_limit), "Chest limit", 0)
-    if not chest_limit then return nil, error_message end
-
-    local tank_columns
-    tank_columns, error_message = parse_integer(get(Constants.gui.tank_columns), "Storage tank columns", 1)
-    if not tank_columns then return nil, error_message end
-
-    local refill_amount
-    refill_amount, error_message = parse_integer(get(Constants.gui.refill_amount), "Refill amount", 1)
-    if not refill_amount then return nil, error_message end
-
-    local train_limit_stack_size
-    train_limit_stack_size, error_message = parse_integer(get(Constants.gui.train_limit_stack_size), "Train-limit stack size", 1)
-    if not train_limit_stack_size then return nil, error_message end
-
-    local enabled_amount
-    enabled_amount, error_message = parse_integer(get(Constants.gui.enabled_amount), "Enabled-condition amount", 0)
-    if not enabled_amount then return nil, error_message end
-
-    local stacker_lanes
-    stacker_lanes, error_message = parse_integer(get(Constants.gui.stacker_lanes), "Stacker lanes", 1)
-    if not stacker_lanes then return nil, error_message end
-
-    local filter_items = {}
-    for index = 1, 5 do
-        filter_items[index] = get(Constants.gui.filter_item_prefix .. index).elem_value or ""
-    end
-
-    local request_items = {}
-    for index = 1, 12 do
-        local name = get(Constants.gui.request_item_prefix .. index).elem_value or ""
-        local count_element = get(Constants.gui.request_count_prefix .. index)
-        local count = tonumber(count_element.text) or 0
-        if count ~= math.floor(count) or count < 0 then
-            return nil, "Logistic request " .. index .. " has an invalid amount."
-        end
-        request_items[index] = { name = name, count = count }
     end
 
     local station_index = get(Constants.gui.station_type).selected_index
@@ -544,6 +499,85 @@ function Gui.read_settings(player)
     local transfer_mode = get(Constants.gui.transfer_mode)
     local loader = get(Constants.gui.loader)
     local station_type = Constants.station_type_keys[station_index] or "loading"
+    local refill_enabled = get(Constants.gui.refill_enabled).state
+    local train_limit = Constants.train_limits[get(Constants.gui.train_limit).selected_index] or "Disabled"
+    local enabled_condition = get(Constants.gui.enabled_condition).state
+    local context = {
+        station_type = station_type,
+        refill_enabled = refill_enabled,
+        train_limit = train_limit,
+        enabled_condition = enabled_condition,
+    }
+    local saved_settings = State.get_player(player.index)
+    local default_settings = State.defaults()
+
+    local function read_integer(field, element_name)
+        local value = tonumber(get(element_name).text)
+        local valid, message = SettingsContext.validate_integer(field, value)
+        if SettingsContext.is_numeric_active(field, context) then
+            return valid and value or nil, message
+        end
+        if valid then return value end
+
+        local saved_value = saved_settings[field]
+        if SettingsContext.validate_integer(field, saved_value) then return saved_value end
+
+        local default_value = default_settings[field]
+        if SettingsContext.validate_integer(field, default_value) then return default_value end
+        return nil, message
+    end
+
+    local locomotives, error_message = read_integer("locomotives", Constants.gui.locomotives)
+    if not locomotives then return nil, error_message end
+
+    local cargo_wagons
+    cargo_wagons, error_message = read_integer("cargo_wagons", Constants.gui.cargo_wagons)
+    if not cargo_wagons then return nil, error_message end
+
+    local chest_limit
+    chest_limit, error_message = read_integer("chest_limit", Constants.gui.chest_limit)
+    if not chest_limit then return nil, error_message end
+
+    local tank_columns
+    tank_columns, error_message = read_integer("tank_columns", Constants.gui.tank_columns)
+    if not tank_columns then return nil, error_message end
+
+    local refill_amount
+    refill_amount, error_message = read_integer("refill_amount", Constants.gui.refill_amount)
+    if not refill_amount then return nil, error_message end
+
+    local train_limit_stack_size
+    train_limit_stack_size, error_message = read_integer("train_limit_stack_size", Constants.gui.train_limit_stack_size)
+    if not train_limit_stack_size then return nil, error_message end
+
+    local enabled_amount
+    enabled_amount, error_message = read_integer("enabled_amount", Constants.gui.enabled_amount)
+    if not enabled_amount then return nil, error_message end
+
+    local stacker_lanes
+    stacker_lanes, error_message = read_integer("stacker_lanes", Constants.gui.stacker_lanes)
+    if not stacker_lanes then return nil, error_message end
+
+    local filter_items = {}
+    for index = 1, 5 do
+        filter_items[index] = PrototypeUtils.item_name_or_nil(
+            get(Constants.gui.filter_item_prefix .. index).elem_value
+        ) or ""
+    end
+
+    local request_items = {}
+    for index = 1, 12 do
+        local name = PrototypeUtils.item_name_or_nil(
+            get(Constants.gui.request_item_prefix .. index).elem_value
+        ) or ""
+        local count_element = get(Constants.gui.request_count_prefix .. index)
+        local count = tonumber(count_element.text) or 0
+        if count ~= math.floor(count) or count < 0 then
+            return nil, "Logistic request " .. index .. " has an invalid amount."
+        end
+        request_items[index] = { name = name, count = count }
+    end
+
     local dynamic_station_name = get(Constants.gui.dynamic_station_name)
 
     return {
@@ -585,13 +619,13 @@ function Gui.read_settings(player)
         connect_both_green = get(Constants.gui.connect_both_green).state,
         connect_red = get(Constants.gui.connect_red).state,
         connect_both_red = get(Constants.gui.connect_both_red).state,
-        refill_enabled = get(Constants.gui.refill_enabled).state,
-        refill_fuel = get(Constants.gui.refill_fuel).elem_value,
+        refill_enabled = refill_enabled,
+        refill_fuel = PrototypeUtils.item_name_or_nil(get(Constants.gui.refill_fuel).elem_value),
         refill_amount = refill_amount,
-        train_limit = Constants.train_limits[get(Constants.gui.train_limit).selected_index] or "Disabled",
+        train_limit = train_limit,
         train_limit_one = get(Constants.gui.train_limit_one).state,
         train_limit_stack_size = train_limit_stack_size,
-        enabled_condition = get(Constants.gui.enabled_condition).state,
+        enabled_condition = enabled_condition,
         enabled_operator = Constants.enabled_operators[get(Constants.gui.enabled_operator).selected_index] or ">",
         enabled_amount = enabled_amount,
         lamps = get(Constants.gui.lamps).state,

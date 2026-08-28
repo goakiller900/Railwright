@@ -5,6 +5,8 @@ local Debug = require("scripts.generator_debug")
 local DiagonalStacker = require("scripts.generator_stacker_diagonal")
 local Fluid = require("scripts.generator_fluid")
 local Normal = require("scripts.generator_normal")
+local PrototypeUtils = require("scripts.prototype_utils")
+local SettingsContext = require("scripts.settings_context")
 local Stacker = require("scripts.generator_stacker")
 
 local Generator = {}
@@ -65,24 +67,44 @@ local function validate_item(name, description)
     return true
 end
 
+local function validate_numeric(settings, field)
+    if not SettingsContext.is_numeric_active(field, settings) then return true end
+    return SettingsContext.validate_integer(field, settings[field])
+end
+
+local function validate_refill_fuel(settings)
+    if not settings.refill_enabled or settings.station_type == "stacker" then return true end
+
+    if not PrototypeUtils.locomotive_fuel_categories() then
+        return false, "The locomotive prototype does not provide usable burner fuel categories for automatic refuelling."
+    end
+    if not PrototypeUtils.has_compatible_locomotive_fuel() then
+        return false, "No item prototype in the current mod set can fuel the locomotive."
+    end
+
+    local ok, message = validate_item(settings.refill_fuel, "Refuel item")
+    if not ok then return false, message end
+    if not PrototypeUtils.is_locomotive_fuel(settings.refill_fuel) then
+        return false, string.format(
+            "Refuel item '%s' is not compatible with the locomotive's burner fuel categories.",
+            settings.refill_fuel
+        )
+    end
+    return true
+end
+
 local function validate_common(settings)
-    if settings.locomotives < 1 then return false, "A train needs at least one locomotive." end
-    if settings.cargo_wagons < 1 then return false, "A train needs at least one wagon." end
-    if settings.locomotives > 50 or settings.cargo_wagons > 200 then
-        return false, "That train is a little too ambitious. Keep locomotives at 50 or fewer and wagons at 200 or fewer."
-    end
+    local ok, message = validate_numeric(settings, "locomotives")
+    if not ok then return false, message end
+    ok, message = validate_numeric(settings, "cargo_wagons")
+    if not ok then return false, message end
 
-    if settings.refill_enabled and settings.station_type ~= "stacker" then
-        local ok, message = validate_item(settings.refill_fuel, "Refuel item")
+    ok, message = validate_refill_fuel(settings)
+    if not ok then return false, message end
+
+    for _, field in ipairs({ "refill_amount", "train_limit_stack_size", "enabled_amount" }) do
+        ok, message = validate_numeric(settings, field)
         if not ok then return false, message end
-    end
-
-    if settings.train_limit_stack_size < 1 then
-        return false, "Train-limit stack size must be at least 1."
-    end
-
-    if settings.enabled_amount < 0 then
-        return false, "Enabled-condition amount cannot be negative."
     end
 
     return true
@@ -134,7 +156,8 @@ local function validate_normal(settings)
         end
     end
 
-    if settings.chest_limit < 0 then return false, "Chest limit cannot be negative." end
+    ok, message = validate_numeric(settings, "chest_limit")
+    if not ok then return false, message end
 
     return true
 end
@@ -149,15 +172,15 @@ local function validate_fluid(settings)
     ok, message = validate_entity(settings.pipe_name, { pipe = true }, "Pipe")
     if not ok then return false, message end
 
-    if settings.tank_columns < 1 then return false, "Storage tank columns must be at least 1." end
-    if settings.tank_columns > 100 then return false, "Storage tank columns must be 100 or fewer." end
+    ok, message = validate_numeric(settings, "tank_columns")
+    if not ok then return false, message end
 
     return true
 end
 
 local function validate_stacker(settings)
-    if settings.stacker_lanes < 1 then return false, "A stacker needs at least one holding lane." end
-    if settings.stacker_lanes > 100 then return false, "Stacker holding lanes must be 100 or fewer." end
+    local ok, message = validate_numeric(settings, "stacker_lanes")
+    if not ok then return false, message end
 
     local modern_rails = {
         "straight-rail",

@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.10
+Date: 28. 08. 2026
+  Bugfixes:
+    - Saved refuelling, transfer-filter, and logistic-request items removed by another mod are now sanitized before the Railwright window opens.
+    - Hidden or disabled numeric fields no longer block unrelated station generation, while active fields still require valid whole numbers.
+    - Automatic locomotive refuelling now accepts only fuels supported by the locomotive burner prototype.
+  Compatibility:
+    - Existing saves recover invalid item selections automatically while preserving valid vanilla and modded items and their filter or request slots.
+---------------------------------------------------------------------------------------------------
 Version: 0.3.9
 Date: 28. 08. 2026
   Bugfixes:
