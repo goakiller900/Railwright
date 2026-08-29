@@ -325,6 +325,23 @@ equal(switched_stacker_read.double_headed, false, "station headedness does not l
 equal(switched_stacker_read.stacker_double_headed, true,
     "stacker headedness survives station-to-stacker switching")
 
+storage.players[20] = {
+    station_type = "stacker",
+    stacker_diagonal = false,
+}
+local diagonal_player = gui_player(20)
+diagonal_player.mod_settings[Constants.settings.enable_experimental_diagonal] = { value = true }
+Gui.open(diagonal_player)
+local diagonal_checkbox = find_gui_element(diagonal_player.gui.screen, Constants.gui.stacker_diagonal)
+local diagonal_warning = find_gui_element(diagonal_player.gui.screen, Constants.gui.stacker_diagonal_warning)
+equal(diagonal_warning.visible, false, "diagonal caution is hidden for a parallel stacker")
+diagonal_checkbox.state = true
+Gui.update_visibility(diagonal_player)
+equal(diagonal_warning.visible, true, "diagonal caution appears when diagonal generation is selected")
+diagonal_checkbox.state = false
+Gui.update_visibility(diagonal_player)
+equal(diagonal_warning.visible, false, "diagonal caution hides when diagonal generation is cleared")
+
 modded_loader_picker.elem_value = nil
 local transfer_mode = find_gui_element(modded_player.gui.screen, Constants.gui.transfer_mode)
 transfer_mode.selected_index = 1

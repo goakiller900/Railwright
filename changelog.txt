@@ -6,6 +6,7 @@ Date: 29. 08. 2026
     - Corrected exit rail-signal placement for short parallel stackers.
   Changes:
     - Added explicit single-headed and double-headed sizing for parallel and diagonal stackers.
+    - Clarified diagonal stacker lane-fan sizing and made its caution appear only when diagonal generation is selected.
   Compatibility:
     - Existing saved stackers remain single-headed until double-headed sizing is selected, independently of station train settings.
 ---------------------------------------------------------------------------------------------------

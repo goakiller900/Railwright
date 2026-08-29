@@ -215,6 +215,8 @@ function Gui.update_visibility(player)
     local fluid_group = find_element(frame, Constants.gui.fluid_group)
     local behavior_group = find_element(frame, Constants.gui.behavior_group)
     local stacker_group = find_element(frame, Constants.gui.stacker_group)
+    local diagonal = find_element(frame, Constants.gui.stacker_diagonal)
+    local diagonal_warning = find_element(frame, Constants.gui.stacker_diagonal_warning)
 
     local item_station = station_type == "loading" or station_type == "unloading"
     local fluid_station = station_type == "fluid-loading" or station_type == "fluid-unloading"
@@ -224,6 +226,7 @@ function Gui.update_visibility(player)
     if fluid_group then fluid_group.visible = fluid_station end
     if behavior_group then behavior_group.visible = not stacker end
     if stacker_group then stacker_group.visible = stacker end
+    if diagonal_warning then diagonal_warning.visible = stacker and diagonal and diagonal.state end
 
     local transfer_mode = find_element(frame, Constants.gui.transfer_mode)
     local using_loaders = item_station and transfer_mode and transfer_mode.selected_index == 2
@@ -464,7 +467,9 @@ function Gui.open(player)
         )
         local experimental = stacker_frame.add({
             type = "label",
+            name = Constants.gui.stacker_diagonal_warning,
             caption = { "railwright.experimental-warning" },
+            visible = false,
         })
         experimental.style.font_color = { 1, 0.68, 0.2 }
         experimental.style.single_line = false
