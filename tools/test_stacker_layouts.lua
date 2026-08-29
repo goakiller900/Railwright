@@ -18,11 +18,11 @@ defines = {
         north = 0,
         northeast = 2,
         east = 4,
-        eastsoutheast = 6,
+        eastsoutheast = 5,
         southeast = 6,
         south = 8,
         southwest = 10,
-        westsouthwest = 10,
+        westsouthwest = 11,
         west = 12,
         northwest = 14,
     },
@@ -100,6 +100,85 @@ local function entity_at_position(entities, x, y, predicate)
     end
 end
 
+local function output_curve_anchor(entities, lane_y, direction)
+    local rails = horizontal_run(entities, lane_y)
+    truthy(#rails > 0, direction .. " lane has a holding run for its output curve")
+
+    local selected
+    for _, entity in ipairs(entities) do
+        if entity.name == "curved-rail-a" and entity.position.y == lane_y then
+            local output_side = direction == "Left-Right"
+                and entity.position.x > rails[#rails].position.x
+                or direction == "Right-Left" and entity.position.x < rails[1].position.x
+            if output_side then
+                truthy(not selected, direction .. " lane has only one output curve anchor")
+                selected = entity
+            end
+        end
+    end
+
+    truthy(selected, direction .. " lane has an output curve anchor")
+    return selected
+end
+
+local function count_direction(entities, direction)
+    local count = 0
+    for _, entity in ipairs(entities) do
+        if entity.direction == direction then count = count + 1 end
+    end
+    return count
+end
+
+local function assert_parallel_signal_geometry(entities, direction, lanes, label)
+    local rail_signals = named(entities, "rail-signal")
+    local chain_signals = named(entities, "rail-chain-signal")
+    local signal_direction = direction == "Left-Right"
+        and defines.direction.eastsoutheast
+        or defines.direction.westsouthwest
+    local lane_chain_direction = direction == "Left-Right"
+        and defines.direction.east
+        or defines.direction.west
+    local expected_chain_count = direction == "Left-Right" and lanes + 1 or lanes + 2
+    local matched = {}
+
+    equal(#rail_signals, lanes, label .. " normal signal count")
+    equal(count_direction(rail_signals, signal_direction), lanes, label .. " normal signal directions")
+    equal(#chain_signals, expected_chain_count, label .. " chain signal count")
+    equal(count_direction(chain_signals, lane_chain_direction), lanes, label .. " lane chain-signal directions")
+    equal(count_direction(chain_signals, defines.direction.south), expected_chain_count - lanes,
+        label .. " final chain-signal directions")
+
+    for lane = 0, lanes - 1 do
+        local lane_y = lane * 4
+        local anchor = output_curve_anchor(entities, lane_y, direction)
+        local expected_x
+        local expected_y
+
+        if direction == "Left-Right" then
+            expected_x = anchor.position.x + 4.5
+            expected_y = anchor.position.y + 0.5
+        else
+            expected_x = anchor.position.x - 3.5
+            expected_y = anchor.position.y + 2.5
+        end
+
+        local signal = entity_at_position(entities, expected_x, expected_y, function(entity)
+            return entity.name == "rail-signal"
+        end)
+        truthy(signal, string.format(
+            "%s lane %d normal signal uses the forward output-curve attachment",
+            label,
+            lane + 1
+        ))
+        equal(signal.direction, signal_direction, label .. " lane exit-signal direction")
+        matched[signal.entity_number] = true
+    end
+
+    for _, signal in ipairs(rail_signals) do
+        truthy(matched[signal.entity_number], label .. " has no unrelated normal signals")
+    end
+end
+
 local function assert_lane_capacity(entities, lane_y, expected_cars, direction, label)
     local rails = horizontal_run(entities, lane_y)
     truthy(#rails > 0, label .. " has a horizontal holding run")
@@ -126,7 +205,7 @@ local function assert_lane_capacity(entities, lane_y, expected_cars, direction, 
         local entry = entity_at_position(entities, -1.5, lane_y - 1.5, function(entity)
             return entity.name == "rail-chain-signal"
         end)
-        local exit = entity_at_position(entities, curves[2].position.x + 2.5, lane_y - 0.5, function(entity)
+        local exit = entity_at_position(entities, curves[2].position.x + 4.5, lane_y + 0.5, function(entity)
             return entity.name == "rail-signal"
         end)
         truthy(entry, label .. " entry chain signal remains on its curve anchor")
@@ -136,18 +215,18 @@ local function assert_lane_capacity(entities, lane_y, expected_cars, direction, 
         truthy(exit.position.x > curves[2].position.x,
             label .. " exit signal does not intrude into the holding run")
     else
-        local entry = entity_at_position(entities, -4.5, lane_y + 1.5, function(entity)
+        local exit = entity_at_position(entities, -6.5, lane_y + 2.5, function(entity)
             return entity.name == "rail-signal"
         end)
-        local exit = entity_at_position(entities, curves[2].position.x - 1.5, lane_y + 1.5, function(entity)
+        local entry = entity_at_position(entities, curves[2].position.x - 1.5, lane_y + 1.5, function(entity)
             return entity.name == "rail-chain-signal"
         end)
-        truthy(entry, label .. " entry rail signal remains before the entrance curve")
-        truthy(exit, label .. " exit chain signal remains on its curve anchor")
-        truthy(entry.position.x < curves[1].position.x,
-            label .. " entry signal does not intrude into the holding run")
-        truthy(rails[#rails].position.x < exit.position.x and exit.position.x < curves[2].position.x,
+        truthy(exit, label .. " exit rail signal remains beyond the output curve")
+        truthy(entry, label .. " entry chain signal remains on its curve anchor")
+        truthy(exit.position.x < curves[1].position.x,
             label .. " exit signal does not intrude into the holding run")
+        truthy(rails[#rails].position.x < entry.position.x and entry.position.x < curves[2].position.x,
+            label .. " entry signal does not intrude into the holding run")
     end
 
     return usable_tiles
@@ -159,6 +238,40 @@ local cases = {
     { locomotives = 2, wagons = 4, total = 6 },
     { locomotives = 5, wagons = 2, total = 7 },
 }
+
+-- Normal exit signals use the forward attachment of each lane's output curve.
+-- Exercise short and long holding runs so a train-length change cannot make a
+-- world-coordinate-only signal correction appear valid, and mirror the check
+-- across both dedicated parallel orientations.
+for _, direction in ipairs({ "Left-Right", "Right-Left" }) do
+    for _, lanes in ipairs({ 1, 3, 9 }) do
+        for _, double_headed in ipairs({ false, true }) do
+            for _, case in ipairs(cases) do
+                local entities = Generator.create_entities(stacker_settings(
+                    case.locomotives,
+                    case.wagons,
+                    direction,
+                    lanes,
+                    double_headed
+                ))
+                local heading = double_headed and "double-headed" or "single-headed"
+                assert_parallel_signal_geometry(
+                    entities,
+                    direction,
+                    lanes,
+                    string.format(
+                        "%s %s %d-%d %d-lane",
+                        direction,
+                        heading,
+                        case.locomotives,
+                        case.wagons,
+                        lanes
+                    )
+                )
+            end
+        end
+    end
+end
 
 -- Cover every reported train in both directions and every lane of the normal
 -- three-lane layout.

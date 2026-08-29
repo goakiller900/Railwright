@@ -88,6 +88,149 @@ local DIAGONAL_CASES = {
     { direction = "Right-Left", lanes = 3, double_headed = true },
 }
 
+local function create_parallel_test_surface(suffix)
+    local surface = game.create_surface("__railwright_parallel_test_" .. suffix, {
+        seed = 0,
+        default_enable_all_autoplace_controls = false,
+        peaceful_mode = true,
+        no_enemies_mode = true,
+    })
+    surface.generate_with_lab_tiles = true
+    surface.request_to_generate_chunks({ 0, 0 }, 2)
+    surface.force_generate_chunk_requests()
+    return surface
+end
+
+local function parallel_output_curve(entities, direction, lane_y)
+    local first_x
+    local last_x
+    for _, descriptor in ipairs(entities) do
+        if descriptor.name == "straight-rail"
+            and descriptor.direction == defines.direction.east
+            and descriptor.position.y == lane_y then
+            first_x = math.min(first_x or descriptor.position.x, descriptor.position.x)
+            last_x = math.max(last_x or descriptor.position.x, descriptor.position.x)
+        end
+    end
+    if not first_x then error(direction .. " parallel lane has no holding rails") end
+
+    local selected
+    for _, descriptor in ipairs(entities) do
+        if descriptor.name == "curved-rail-a" and descriptor.position.y == lane_y then
+            local output_side = direction == "Left-Right" and descriptor.position.x > last_x
+                or direction == "Right-Left" and descriptor.position.x < first_x
+            if output_side then
+                if selected then error(direction .. " parallel lane has multiple output curves") end
+                selected = descriptor
+            end
+        end
+    end
+    if not selected then error(direction .. " parallel lane has no output curve") end
+    return selected
+end
+
+local function forward_signal_location(rail, direction)
+    local selected
+    for _, rail_direction in pairs(defines.rail_direction) do
+        local rail_end = rail.get_rail_end(rail_direction)
+        if not selected
+            or direction == "Left-Right" and rail_end.location.position.x > selected.location.position.x
+            or direction == "Right-Left" and rail_end.location.position.x < selected.location.position.x then
+            selected = rail_end
+        end
+    end
+
+    if not selected.move_natural() then error("Parallel output curve is not connected to its next rail") end
+    selected.flip_direction()
+    return selected.out_signal_location
+end
+
+local function check_parallel_stacker(direction, locomotives, wagons, lanes, double_headed, case_index)
+    local surface = create_parallel_test_surface(direction .. "_" .. case_index)
+    local entities = Generator.create_entities({
+        station_type = "stacker",
+        locomotives = locomotives,
+        cargo_wagons = wagons,
+        stacker_double_headed = double_headed,
+        stacker_lanes = lanes,
+        stacker_diagonal = false,
+        stacker_type = direction,
+    })
+    local placed_rails = {}
+
+    for _, descriptor in ipairs(entities) do
+        if RAIL_NAMES[descriptor.name] then
+            local rail = surface.create_entity({
+                name = descriptor.name,
+                position = descriptor.position,
+                direction = descriptor.direction,
+                force = game.forces.player,
+                create_build_effect_smoke = false,
+                raise_built = false,
+            })
+            if not rail then error("Could not place parallel runtime-test rail") end
+            placed_rails[descriptor.entity_number] = rail
+        end
+    end
+
+    local expected_direction = direction == "Left-Right"
+        and defines.direction.eastsoutheast
+        or defines.direction.westsouthwest
+    local matched = {}
+    local label = string.format(
+        "%s %s %d-%d %d-lane parallel",
+        direction,
+        double_headed and "double-headed" or "single-headed",
+        locomotives,
+        wagons,
+        lanes
+    )
+
+    check(count_entities(entities, { ["rail-signal"] = true }), lanes, label .. " rail-signal count")
+    check(count_entities(entities, ROLLING_STOCK), 0, label .. " rolling-stock count")
+
+    for lane = 0, lanes - 1 do
+        local anchor = parallel_output_curve(entities, direction, lane * 4)
+        local location = forward_signal_location(placed_rails[anchor.entity_number], direction)
+        local signal
+        for _, descriptor in ipairs(entities) do
+            if descriptor.name == "rail-signal"
+                and descriptor.position.x + 1 == location.position.x
+                and descriptor.position.y + 1 == location.position.y
+                and descriptor.direction == location.direction then
+                signal = descriptor
+                break
+            end
+        end
+        if not signal then error(label .. " lane exit signal does not use Factorio's forward rail attachment") end
+        check(signal.direction, expected_direction, label .. " lane exit-signal direction")
+        matched[signal.entity_number] = true
+    end
+
+    check(table_size(matched), lanes, label .. " matched exit-signal count")
+    game.delete_surface(surface)
+end
+
+local function check_parallel_stackers()
+    local cases = {
+        { locomotives = 1, wagons = 1, lanes = 3, double_headed = false },
+        { locomotives = 1, wagons = 4, lanes = 1, double_headed = true },
+    }
+    for _, direction in ipairs({ "Left-Right", "Right-Left" }) do
+        for case_index, test_case in ipairs(cases) do
+            check_parallel_stacker(
+                direction,
+                test_case.locomotives,
+                test_case.wagons,
+                test_case.lanes,
+                test_case.double_headed,
+                case_index
+            )
+        end
+    end
+    log("[Railwright automated runtime test] Parallel stackers PASS")
+end
+
 local function check_diagonal_stacker(test_case)
     -- The native geometry surface cannot be deleted and recreated in one tick,
     -- so the runtime suite schedules one generation case per tick.
@@ -186,6 +329,7 @@ script.on_init(function()
         stop = manual_stop.unit_number,
     }
     storage.diagonal_three_single_rails = {}
+    check_parallel_stackers()
 end)
 
 script.on_event(defines.events.on_tick, function(event)

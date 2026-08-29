@@ -3,6 +3,7 @@ Version: 0.3.11
 Date: 29. 08. 2026
   Bugfixes:
     - Corrected parallel stacker holding-track lengths for short and long train configurations.
+    - Corrected exit rail-signal placement for short parallel stackers.
   Changes:
     - Added explicit single-headed and double-headed sizing for parallel and diagonal stackers.
   Compatibility:
