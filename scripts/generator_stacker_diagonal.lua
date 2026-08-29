@@ -2,6 +2,7 @@
 -- planner to create one lane template on a temporary lab-tile surface, records
 -- canonical rail/signal locations, then offsets that template for every lane.
 local Builder = require("scripts.generator_builder")
+local Common = require("scripts.generator_common")
 local Debug = require("scripts.generator_debug")
 
 local DiagonalStacker = {}
@@ -25,9 +26,9 @@ local function normalize_stacker_type(stacker_type)
 end
 
 local function diagonal_straight_steps(settings)
-    -- Stackers use the selected locomotive/wagon count only as a length guide;
-    -- Generator deliberately disables double-headed train placement for them.
-    local legacy_length = rounded((2.5 * (settings.locomotives + settings.cargo_wagons)) / 2) * 2 + 1
+    -- Preserve the existing single-headed native-rail geometry exactly while
+    -- allowing the shared total-car rule to count locomotives at both ends.
+    local legacy_length = rounded((2.5 * Common.total_cars(settings)) / 2) * 2 + 1
     local train_steps = math.max(2, legacy_length)
 
     -- A 1-4 train needs 13 native diagonal straights to clear both fan curves.
@@ -35,6 +36,12 @@ local function diagonal_straight_steps(settings)
     -- fan widens; both orientations were validated with the same rule.
     local fan_clearance_steps = settings.stacker_lanes + 4
     return math.max(train_steps, fan_clearance_steps)
+end
+
+-- Expose the pure sizing result for geometry regression tests; generation still
+-- uses the same function below to construct the native rail template.
+function DiagonalStacker.holding_straight_steps(settings)
+    return diagonal_straight_steps(settings)
 end
 
 local function make_unique_adder(builder)

@@ -11,10 +11,10 @@ local Stacker = {}
 -- cannot be mirrored reliably by only flipping entity coordinates/directions.
 
 local LANE_SPACING = 4
-local REFERENCE_TOTAL_CARS = 6
+local REFERENCE_TOTAL_CARS = 5
 local REFERENCE_STRAIGHT_RAILS = 16
 local STRAIGHT_RAILS_PER_EXTRA_CAR = 4
-local MINIMUM_STRAIGHT_RAILS = 8
+local MINIMUM_STRAIGHT_RAILS = 4
 
 local function normalize_stacker_type(stacker_type)
     return stacker_type == "Right-Left" and "Right-Left" or "Left-Right"
@@ -123,6 +123,12 @@ end
 
 local function straight_rail_count(settings)
     local total_cars = Common.total_cars(settings)
+
+    -- The manual reference is a 1-locomotive/4-wagon train: five total cars on
+    -- sixteen two-tile straight rails. Each additional seven-tile car needs four
+    -- more rails on the native two-tile grid. Four rails are the smallest run
+    -- that holds the seven-tile centre spacing of a two-car train; the old
+    -- eight-rail minimum incorrectly made that layout large enough for three.
     local count = REFERENCE_STRAIGHT_RAILS
         + (total_cars - REFERENCE_TOTAL_CARS) * STRAIGHT_RAILS_PER_EXTRA_CAR
 

@@ -96,6 +96,8 @@ storage = {
             request_items = { { name = {}, count = 25 } },
         },
         [16] = { refill_fuel = "iron-plate" },
+        [17] = { station_type = "stacker", double_headed = true },
+        [18] = { stacker_double_headed = "true" },
     },
 }
 
@@ -153,6 +155,13 @@ equal(malformed_items.request_items[1].name, "", "malformed saved request become
 local non_fuel = State.ensure_player(16)
 equal(non_fuel.refill_fuel, "solid-fuel", "saved non-fuel falls back to the valid default")
 
+local legacy_stacker = State.ensure_player(17)
+equal(legacy_stacker.double_headed, true, "legacy station double-headed choice is preserved")
+equal(legacy_stacker.stacker_double_headed, false, "legacy stacker defaults safely to single-headed sizing")
+
+local malformed_stacker = State.ensure_player(18)
+equal(malformed_stacker.stacker_double_headed, false, "malformed stacker headedness normalizes safely")
+
 local solid_fuel = prototypes.item["solid-fuel"]
 prototypes.item["solid-fuel"] = nil
 storage.players[14] = { refill_fuel = "removed-fuel-without-default" }
@@ -177,6 +186,7 @@ local function gui_element(spec, parent)
 
     local element = {
         valid = true,
+        visible = true,
         children = {},
         style = {},
         parent = parent,
@@ -267,6 +277,53 @@ equal(recovered_loader_picker.entity, nil, "GUI opens an empty saved loader as u
 local recovered_settings = Gui.read_settings(recovered_player)
 equal(recovered_settings.loader_name, nil, "GUI reader keeps an unselected loader nil")
 equal(recovered_settings.transfer_mode, "inserters", "GUI reflects recovered inserter mode")
+
+storage.players[19] = {
+    station_type = "stacker",
+    double_headed = true,
+}
+local stacker_player = gui_player(19)
+Gui.open(stacker_player)
+local station_double = find_gui_element(stacker_player.gui.screen, Constants.gui.double_headed)
+local stacker_double = find_gui_element(stacker_player.gui.screen, Constants.gui.stacker_double_headed)
+local stacker_group = find_gui_element(stacker_player.gui.screen, Constants.gui.stacker_group)
+equal(station_double.visible, false, "stacker hides the station double-headed option")
+equal(stacker_double.visible, true, "stacker double-headed sizing option is visible")
+equal(stacker_group.visible, true, "stacker sizing group is visible")
+equal(stacker_double.state, false, "legacy stacker GUI opens single-headed")
+
+stacker_double.state = true
+Gui.update_summary(stacker_player)
+local stacker_read = Gui.read_settings(stacker_player)
+equal(stacker_read.double_headed, true, "stacker read does not corrupt the station headedness")
+equal(stacker_read.stacker_double_headed, true, "stacker reads its explicit double-headed choice")
+local stacker_summary = find_gui_element(stacker_player.gui.screen, Constants.gui.summary_label)
+equal(stacker_summary.caption[7][1], "railwright.train-double-headed",
+    "stacker summary identifies double-headed sizing")
+
+Gui.close(stacker_player)
+Gui.open(stacker_player)
+stacker_double = find_gui_element(stacker_player.gui.screen, Constants.gui.stacker_double_headed)
+equal(stacker_double.state, true, "closing and reopening preserves stacker double-headed sizing")
+
+local station_type = find_gui_element(stacker_player.gui.screen, Constants.gui.station_type)
+station_double = find_gui_element(stacker_player.gui.screen, Constants.gui.double_headed)
+station_type.selected_index = 1
+Gui.update_visibility(stacker_player)
+equal(station_double.visible, true, "station layout shows its own double-headed option")
+equal(find_gui_element(stacker_player.gui.screen, Constants.gui.stacker_group).visible, false,
+    "station layout hides stacker sizing controls")
+station_double.state = false
+local station_read = Gui.read_settings(stacker_player)
+equal(station_read.double_headed, false, "station reads its own single-headed choice")
+equal(station_read.stacker_double_headed, true, "station switch preserves stacker double-headed choice")
+
+station_type.selected_index = 5
+Gui.update_visibility(stacker_player)
+local switched_stacker_read = Gui.read_settings(stacker_player)
+equal(switched_stacker_read.double_headed, false, "station headedness does not leak when switching to stacker")
+equal(switched_stacker_read.stacker_double_headed, true,
+    "stacker headedness survives station-to-stacker switching")
 
 modded_loader_picker.elem_value = nil
 local transfer_mode = find_gui_element(modded_player.gui.screen, Constants.gui.transfer_mode)

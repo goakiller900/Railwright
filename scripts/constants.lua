@@ -75,6 +75,7 @@ local Constants = {
         lamps = "railwright_lamps",
 
         stacker_lanes = "railwright_stacker_lanes",
+        stacker_double_headed = "railwright_stacker_double_headed",
         stacker_diagonal = "railwright_stacker_diagonal",
         stacker_type = "railwright_stacker_type",
     },

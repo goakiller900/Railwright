@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.11
+Date: 29. 08. 2026
+  Bugfixes:
+    - Corrected parallel stacker holding-track lengths for short and long train configurations.
+  Changes:
+    - Added explicit single-headed and double-headed sizing for parallel and diagonal stackers.
+  Compatibility:
+    - Existing saved stackers remain single-headed until double-headed sizing is selected, independently of station train settings.
+---------------------------------------------------------------------------------------------------
 Version: 0.3.10
 Date: 28. 08. 2026
   Bugfixes:

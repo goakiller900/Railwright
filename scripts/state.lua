@@ -65,6 +65,7 @@ local default_settings = {
     lamps = false,
 
     stacker_lanes = 3,
+    stacker_double_headed = false,
     stacker_diagonal = false,
     stacker_type = "Left-Right",
 }
@@ -159,6 +160,13 @@ local function normalize_settings(settings)
 
     if not valid_stacker_types[settings.stacker_type] then
         settings.stacker_type = "Left-Right"
+    end
+
+    -- Before 0.3.11 stackers silently ignored the station double-headed flag.
+    -- Keep old and malformed saves single-headed until the player opts in using
+    -- the dedicated stacker sizing control.
+    if type(settings.stacker_double_headed) ~= "boolean" then
+        settings.stacker_double_headed = false
     end
 
     return settings

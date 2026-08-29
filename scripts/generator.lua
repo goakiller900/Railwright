@@ -223,9 +223,10 @@ local function stacker_generation_settings(settings)
     local result = {}
     for key, value in pairs(settings) do result[key] = value end
 
-    -- Stackers use the selected train length only as a sizing reference. Station
-    -- options that place or alter an actual train are intentionally ignored.
-    result.double_headed = false
+    -- Stackers use the selected train only as a sizing reference. Keep their
+    -- double-headed choice separate from station placement settings so existing
+    -- saves remain single-headed until the player explicitly opts in.
+    result.double_headed = settings.stacker_double_headed == true
     result.include_train = false
 
     return result

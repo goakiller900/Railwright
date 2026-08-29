@@ -161,6 +161,7 @@ function Gui.update_summary(player)
         local lanes = positive_integer_text(find_element(frame, Constants.gui.stacker_lanes))
         local direction = find_element(frame, Constants.gui.stacker_type)
         local diagonal = find_element(frame, Constants.gui.stacker_diagonal)
+        local double_headed = find_element(frame, Constants.gui.stacker_double_headed)
         summary.caption = {
             "railwright.summary-stacker",
             diagonal and diagonal.state and { "railwright.layout-diagonal" } or { "railwright.layout-parallel" },
@@ -168,6 +169,9 @@ function Gui.update_summary(player)
             tostring(lanes or "?"),
             tostring(locomotives or "?"),
             tostring(wagons or "?"),
+            double_headed and double_headed.state
+                and { "railwright.train-double-headed" }
+                or { "railwright.train-single-headed" },
         }
     else
         summary.caption = {
@@ -186,7 +190,16 @@ end
 
 function Gui.close(player)
     local frame = player.gui.screen[Constants.gui.frame]
-    if frame then frame.destroy() end
+    if frame then
+        -- Persist this new compatibility-sensitive choice even when the window is
+        -- closed without generating. Other established settings retain their
+        -- existing save-on-generation behavior.
+        local stacker_double_headed = find_element(frame, Constants.gui.stacker_double_headed)
+        if stacker_double_headed then
+            State.get_player(player.index).stacker_double_headed = stacker_double_headed.state == true
+        end
+        frame.destroy()
+    end
 end
 
 function Gui.update_visibility(player)
@@ -432,6 +445,13 @@ function Gui.open(player)
     local stacker_frame, stacker = add_section(scroll, Constants.gui.stacker_group, { "railwright.section-stacker" })
     textfield(stacker, { "railwright.stacker-lanes" }, Constants.gui.stacker_lanes, settings.stacker_lanes, true,
         { "railwright.stacker-lanes-tooltip" })
+    checkbox(
+        stacker,
+        { "railwright.stacker-double-headed-sizing" },
+        Constants.gui.stacker_double_headed,
+        settings.stacker_double_headed,
+        { "railwright.stacker-double-headed-sizing-tooltip" }
+    )
     dropdown(stacker, { "railwright.stacker-type" }, Constants.gui.stacker_type, Constants.stacker_types,
         find_index(Constants.stacker_types, settings.stacker_type))
     if diagonal_setting_enabled(player) then
@@ -631,6 +651,7 @@ function Gui.read_settings(player)
         lamps = get(Constants.gui.lamps).state,
 
         stacker_lanes = stacker_lanes,
+        stacker_double_headed = get(Constants.gui.stacker_double_headed).state,
         stacker_diagonal = diagonal_setting_enabled(player)
             and get(Constants.gui.stacker_diagonal).state
             or false,

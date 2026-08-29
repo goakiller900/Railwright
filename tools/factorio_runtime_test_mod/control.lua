@@ -1,4 +1,5 @@
 local MARKER = "railwright-station-name-combinator"
+local Generator = require("__railwright__/scripts/generator")
 
 local function check(actual, expected, label)
     if actual ~= expected then
@@ -39,6 +40,80 @@ local function filter(signal_type, name, count)
         value.comparator = "="
     end
     return { value = value, min = count }
+end
+
+local function count_entities(entities, names)
+    local count = 0
+    for _, value in ipairs(entities) do
+        if names[value.name] then count = count + 1 end
+    end
+    return count
+end
+
+local function diagonal_settings(direction, lanes, double_headed)
+    return {
+        station_type = "stacker",
+        locomotives = 1,
+        cargo_wagons = 4,
+        double_headed = not double_headed,
+        stacker_double_headed = double_headed,
+        include_train = true,
+        stacker_lanes = lanes,
+        stacker_diagonal = true,
+        stacker_type = direction,
+    }
+end
+
+local RAIL_NAMES = {
+    ["straight-rail"] = true,
+    ["half-diagonal-rail"] = true,
+    ["curved-rail-a"] = true,
+    ["curved-rail-b"] = true,
+}
+
+local ROLLING_STOCK = {
+    locomotive = true,
+    ["cargo-wagon"] = true,
+    ["fluid-wagon"] = true,
+}
+
+local DIAGONAL_CASES = {
+    { direction = "Left-Right", lanes = 1, double_headed = false, entities = 25, rails = 21 },
+    { direction = "Left-Right", lanes = 1, double_headed = true, entities = 29, rails = 25 },
+    { direction = "Left-Right", lanes = 3, double_headed = false },
+    { direction = "Left-Right", lanes = 3, double_headed = true },
+    { direction = "Right-Left", lanes = 1, double_headed = false, entities = 25, rails = 21 },
+    { direction = "Right-Left", lanes = 1, double_headed = true, entities = 29, rails = 25 },
+    { direction = "Right-Left", lanes = 3, double_headed = false },
+    { direction = "Right-Left", lanes = 3, double_headed = true },
+}
+
+local function check_diagonal_stacker(test_case)
+    -- The native geometry surface cannot be deleted and recreated in one tick,
+    -- so the runtime suite schedules one generation case per tick.
+    local entities = Generator.create_entities(diagonal_settings(
+        test_case.direction,
+        test_case.lanes,
+        test_case.double_headed
+    ))
+    local heading = test_case.double_headed and "double-headed" or "single-headed"
+    local label = string.format("%s %s %d-lane diagonal", test_case.direction, heading, test_case.lanes)
+    local rail_count = count_entities(entities, RAIL_NAMES)
+
+    check(count_entities(entities, ROLLING_STOCK), 0, label .. " rolling-stock count")
+    check(count_entities(entities, { ["rail-signal"] = true }), test_case.lanes,
+        label .. " rail-signal count")
+    check(count_entities(entities, { ["rail-chain-signal"] = true }), test_case.lanes + 2,
+        label .. " chain-signal count")
+
+    if test_case.entities then
+        check(#entities, test_case.entities, label .. " entity count")
+        check(rail_count, test_case.rails, label .. " rail count")
+    elseif not test_case.double_headed then
+        storage.diagonal_three_single_rails[test_case.direction] = rail_count
+    elseif rail_count <= (storage.diagonal_three_single_rails[test_case.direction] or math.huge) then
+        error(label .. " did not lengthen its holding rails")
+    end
 end
 
 local function signal_summary(marker)
@@ -110,9 +185,18 @@ script.on_init(function()
         marker = manual_marker.unit_number,
         stop = manual_stop.unit_number,
     }
+    storage.diagonal_three_single_rails = {}
 end)
 
 script.on_event(defines.events.on_tick, function(event)
+    local diagonal_case = DIAGONAL_CASES[event.tick]
+    if diagonal_case then
+        check_diagonal_stacker(diagonal_case)
+        if event.tick == #DIAGONAL_CASES then
+            log("[Railwright automated runtime test] Diagonal stackers PASS")
+        end
+    end
+
     local primary = storage.primary
     local stop = entity(primary.stop)
     local marker = game.get_entity_by_unit_number(primary.marker)
