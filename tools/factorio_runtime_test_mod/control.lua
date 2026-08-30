@@ -96,6 +96,61 @@ local DIAGONAL_CASES = {
     { direction = "Right-Left", locomotives = 1, wagons = 4, lanes = 3, double_headed = true },
 }
 
+-- Translation-normalized from the supplied 1-4, three-lane Left-Right
+-- reference and from the preserved Right-Left native layout. Entity 72 in the
+-- supplied reference is intentionally absent: Factorio reports that chain
+-- signal has no connected rail, and an exhaustive native-end probe found no
+-- valid 2.1 rail attachment on the reference rail-grid phase.
+local DIAGONAL_REFERENCE_SIGNATURES = {
+    ["Left-Right"] = {
+        curves = "curved-rail-a@13.0,34.0,4;curved-rail-a@45.0,0.0,12;curved-rail-a@49.0,0.0,12;"
+            .. "curved-rail-a@5.0,34.0,4;curved-rail-a@53.0,0.0,12;curved-rail-a@9.0,34.0,4;"
+            .. "curved-rail-b@10.0,32.0,4;curved-rail-b@14.0,32.0,4;curved-rail-b@18.0,32.0,4;"
+            .. "curved-rail-b@40.0,2.0,12;curved-rail-b@44.0,2.0,12;curved-rail-b@48.0,2.0,12",
+        signals = "rail-chain-signal@-0.5,35.5,12;rail-chain-signal@41.5,2.5,11;"
+            .. "rail-chain-signal@43.5,4.5,10;rail-chain-signal@45.5,6.5,10;"
+            .. "rail-chain-signal@58.5,1.5,12;rail-signal@17.5,26.5,10;"
+            .. "rail-signal@17.5,30.5,10;rail-signal@18.5,32.5,11",
+        terminal_straights = "straight-rail@0.0,34.0,4;straight-rail@10.0,34.0,4;"
+            .. "straight-rail@2.0,34.0,4;straight-rail@4.0,34.0,4;straight-rail@48.0,0.0,4;"
+            .. "straight-rail@50.0,0.0,4;straight-rail@52.0,0.0,4;straight-rail@54.0,0.0,4;"
+            .. "straight-rail@56.0,0.0,4;straight-rail@58.0,0.0,4;straight-rail@6.0,34.0,4;"
+            .. "straight-rail@8.0,34.0,4",
+    },
+    ["Right-Left"] = {
+        curves = "curved-rail-a@13.0,0.0,6;curved-rail-a@45.0,34.0,14;curved-rail-a@49.0,34.0,14;"
+            .. "curved-rail-a@5.0,0.0,6;curved-rail-a@53.0,34.0,14;curved-rail-a@9.0,0.0,6;"
+            .. "curved-rail-b@10.0,2.0,6;curved-rail-b@14.0,2.0,6;curved-rail-b@18.0,2.0,6;"
+            .. "curved-rail-b@40.0,32.0,14;curved-rail-b@44.0,32.0,14;curved-rail-b@48.0,32.0,14",
+        signals = "rail-chain-signal@-0.5,-1.5,4;rail-chain-signal@14.5,4.5,6;"
+            .. "rail-chain-signal@18.5,4.5,6;rail-chain-signal@22.5,4.5,6;"
+            .. "rail-chain-signal@58.5,32.5,4;rail-signal@38.5,28.5,6;"
+            .. "rail-signal@42.5,28.5,6;rail-signal@46.5,28.5,6",
+        terminal_straights = "straight-rail@0.0,0.0,4;straight-rail@10.0,0.0,4;"
+            .. "straight-rail@2.0,0.0,4;straight-rail@4.0,0.0,4;straight-rail@48.0,34.0,4;"
+            .. "straight-rail@50.0,34.0,4;straight-rail@52.0,34.0,4;straight-rail@54.0,34.0,4;"
+            .. "straight-rail@56.0,34.0,4;straight-rail@58.0,34.0,4;straight-rail@6.0,0.0,4;"
+            .. "straight-rail@8.0,0.0,4",
+    },
+}
+
+local function normalized_geometry_signature(entities, rail_min_x, rail_min_y, predicate)
+    local values = {}
+    for _, descriptor in ipairs(entities) do
+        if predicate(descriptor) then
+            values[#values + 1] = string.format(
+                "%s@%.1f,%.1f,%s",
+                descriptor.name,
+                descriptor.position.x - rail_min_x,
+                descriptor.position.y - rail_min_y,
+                tostring(descriptor.direction or 0)
+            )
+        end
+    end
+    table.sort(values)
+    return table.concat(values, ";")
+end
+
 local function create_geometry_test_surface(family, suffix)
     local surface = game.create_surface("__railwright_" .. family .. "_test_" .. suffix, {
         seed = 0,
@@ -258,7 +313,13 @@ local function matching_signal_ends(descriptor, placed_rails, terminal_only)
                 if same_rail_location(descriptor, rail_end.in_signal_location) then
                     matches.incoming = matches.incoming + 1
                 end
+                if same_rail_location(descriptor, rail_end.alternative_in_signal_location) then
+                    matches.incoming = matches.incoming + 1
+                end
                 if same_rail_location(descriptor, rail_end.out_signal_location) then
+                    matches.outgoing = matches.outgoing + 1
+                end
+                if same_rail_location(descriptor, rail_end.alternative_out_signal_location) then
                     matches.outgoing = matches.outgoing + 1
                 end
             end
@@ -319,18 +380,15 @@ local function check_diagonal_signal_geometry(entities, test_case, label)
         local all_matches = matching_signal_ends(signal, placed_rails, false)
         if all_matches.incoming == 0 and all_matches.outgoing == 0 then
             error(label .. " chain signal is not attached to a rail end")
-        end
-
-        local terminal_matches = matching_signal_ends(signal, placed_rails, true)
-        if terminal_matches.incoming > 0 then
-            terminal_incoming[#terminal_incoming + 1] = signal
-        elseif terminal_matches.outgoing > 0 then
-            terminal_outgoing[#terminal_outgoing + 1] = signal
         else
-            if all_matches.incoming == 0 then
-                error(label .. " lane chain signal is not attached to an incoming rail end")
+            local terminal_matches = matching_signal_ends(signal, placed_rails, true)
+            if terminal_matches.incoming > 0 then
+                terminal_incoming[#terminal_incoming + 1] = signal
+            elseif terminal_matches.outgoing > 0 then
+                terminal_outgoing[#terminal_outgoing + 1] = signal
+            else
+                lane_chains[#lane_chains + 1] = signal
             end
-            lane_chains[#lane_chains + 1] = signal
         end
     end
 
@@ -352,7 +410,6 @@ local function check_diagonal_signal_geometry(entities, test_case, label)
     for lane = 1, test_case.lanes do
         local normal = normal_signals[lane]
         local chain = lane_chains[lane]
-        check(normal.direction, chain.direction, label .. " lane signal direction " .. lane)
         if test_case.direction == "Left-Right" and chain.position.x <= normal.position.x then
             error(label .. " lane " .. lane .. " normal signal is not before its exit chain signal")
         elseif test_case.direction == "Right-Left" and chain.position.x >= normal.position.x then
@@ -363,10 +420,13 @@ local function check_diagonal_signal_geometry(entities, test_case, label)
             local previous_normal = normal_signals[lane - 1]
             local previous_chain = lane_chains[lane - 1]
             if test_case.direction == "Left-Right" then
-                check(normal.position.x, previous_normal.position.x, label .. " normal-signal lane X")
-                check(normal.position.y - previous_normal.position.y, 4, label .. " normal-signal lane Y step")
-                check(chain.position.x, previous_chain.position.x, label .. " chain-signal lane X")
-                check(chain.position.y - previous_chain.position.y, 4, label .. " chain-signal lane Y step")
+                if normal.position.x < previous_normal.position.x or normal.position.y <= previous_normal.position.y then
+                    error(label .. " normal signals do not follow the Left-Right exit fan")
+                end
+                check(chain.position.x - previous_chain.position.x, 2,
+                    label .. " chain-signal fan X step")
+                check(chain.position.y - previous_chain.position.y, 2,
+                    label .. " chain-signal fan Y step")
             else
                 check(normal.position.x - previous_normal.position.x, 4, label .. " normal-signal lane X step")
                 check(normal.position.y, previous_normal.position.y, label .. " normal-signal lane Y")
@@ -399,6 +459,41 @@ local function check_diagonal_stacker(test_case)
         test_case.lanes
     )
     local rail_count = count_entities(entities, RAIL_NAMES)
+    local min_x
+    local max_x
+    local min_y
+    local max_y
+    local entity_min_x
+    local entity_max_x
+    local entity_min_y
+    local entity_max_y
+
+    for _, descriptor in ipairs(entities) do
+        entity_min_x = math.min(entity_min_x or descriptor.position.x, descriptor.position.x)
+        entity_max_x = math.max(entity_max_x or descriptor.position.x, descriptor.position.x)
+        entity_min_y = math.min(entity_min_y or descriptor.position.y, descriptor.position.y)
+        entity_max_y = math.max(entity_max_y or descriptor.position.y, descriptor.position.y)
+        if RAIL_NAMES[descriptor.name] then
+            min_x = math.min(min_x or descriptor.position.x, descriptor.position.x)
+            max_x = math.max(max_x or descriptor.position.x, descriptor.position.x)
+            min_y = math.min(min_y or descriptor.position.y, descriptor.position.y)
+            max_y = math.max(max_y or descriptor.position.y, descriptor.position.y)
+        end
+    end
+
+    if max_x - min_x <= max_y - min_y then
+        error(label .. " uses a transposed physical layout instead of horizontal terminal trunks")
+    end
+
+    local terminal_straights = 0
+    for _, descriptor in ipairs(entities) do
+        if descriptor.name == "straight-rail"
+            and (descriptor.position.y == min_y or descriptor.position.y == max_y) then
+            check(descriptor.direction, defines.direction.east, label .. " terminal trunk direction")
+            terminal_straights = terminal_straights + 1
+        end
+    end
+    if terminal_straights < 4 then error(label .. " has no horizontal terminal approach and departure") end
 
     check(count_entities(entities, ROLLING_STOCK), 0, label .. " rolling-stock count")
     check(count_entities(entities, { ["rail-signal"] = true }), test_case.lanes,
@@ -409,6 +504,36 @@ local function check_diagonal_stacker(test_case)
     if test_case.entities then
         check(#entities, test_case.entities, label .. " entity count")
         check(rail_count, test_case.rails, label .. " rail count")
+    end
+
+
+    if test_case.locomotives == 1
+        and test_case.wagons == 4
+        and test_case.lanes == 3
+        and not test_case.double_headed then
+        local reference = DIAGONAL_REFERENCE_SIGNATURES[test_case.direction]
+        check(#entities, 71, label .. " attached reference entity count")
+        check(rail_count, 63, label .. " reference rail count")
+        check(count_entities(entities, { ["straight-rail"] = true }), 51,
+            label .. " reference straight-rail count")
+        check(count_entities(entities, { ["curved-rail-a"] = true }), 6,
+            label .. " reference curved-rail-a count")
+        check(count_entities(entities, { ["curved-rail-b"] = true }), 6,
+            label .. " reference curved-rail-b count")
+        check(max_x - min_x, 58, label .. " normalized rail footprint width")
+        check(max_y - min_y, 34, label .. " normalized rail footprint height")
+        check(entity_max_x - entity_min_x, 59, label .. " attached entity footprint width")
+        check(entity_max_y - entity_min_y, 35.5, label .. " attached entity footprint height")
+        check(normalized_geometry_signature(entities, min_x, min_y, function(descriptor)
+            return descriptor.name == "curved-rail-a" or descriptor.name == "curved-rail-b"
+        end), reference.curves, label .. " normalized curve/fan topology")
+        check(normalized_geometry_signature(entities, min_x, min_y, function(descriptor)
+            return descriptor.name == "rail-signal" or descriptor.name == "rail-chain-signal"
+        end), reference.signals, label .. " normalized operational signal geometry")
+        check(normalized_geometry_signature(entities, min_x, min_y, function(descriptor)
+            return descriptor.name == "straight-rail"
+                and (descriptor.position.y == min_y or descriptor.position.y == max_y)
+        end), reference.terminal_straights, label .. " normalized horizontal terminal trunks")
     end
 
     local sizing_key = table.concat({

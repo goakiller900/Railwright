@@ -210,6 +210,8 @@ local function extend(surface, prepared_chunks, rail_end, turn, rail_entities)
             extension.name
         ))
     end
+
+    return rail
 end
 
 local function create_geometry_surface()
@@ -224,6 +226,26 @@ local function create_geometry_surface()
     })
     surface.generate_with_lab_tiles = true
     return surface
+end
+
+local function same_end(left, right)
+    return left.location.direction == right.location.direction
+        and left.location.position.x == right.location.position.x
+        and left.location.position.y == right.location.position.y
+end
+
+local function opposite_end(rail, current_end)
+    for _, rail_direction in pairs(defines.rail_direction) do
+        local candidate = rail.get_rail_end(rail_direction)
+        if not same_end(candidate, current_end) then return candidate end
+    end
+
+    error(string.format(
+        "Railwright could not find the opposite end of native rail '%s' at (%.3f, %.3f).",
+        rail.name,
+        rail.position.x,
+        rail.position.y
+    ))
 end
 
 local function build_lane_template(settings, heading, first_turn)
@@ -255,8 +277,14 @@ local function build_lane_template(settings, heading, first_turn)
             extend(surface, prepared_chunks, forward, 0, rail_entities)
         end
 
-        for _ = 1, CURVE_STEPS do
-            extend(surface, prepared_chunks, forward, first_turn, rail_entities)
+        local entry_curve_ends = {}
+        for curve_step = 1, CURVE_STEPS do
+            local rail = extend(surface, prepared_chunks, forward, first_turn, rail_entities)
+            entry_curve_ends[curve_step] = {
+                far_incoming = copy_location(forward.in_signal_location),
+                far_alternative_incoming = copy_location(forward.alternative_in_signal_location),
+                near_outgoing = copy_location(opposite_end(rail, forward).out_signal_location),
+            }
         end
 
         local diagonal_in_signal_points = {}
@@ -267,12 +295,18 @@ local function build_lane_template(settings, heading, first_turn)
             diagonal_in_signal_points[step] = copy_location(forward.in_signal_location)
         end
 
-        for _ = 1, CURVE_STEPS do
+        local exit_curve_signal_points = {}
+        for curve_step = 1, CURVE_STEPS do
             extend(surface, prepared_chunks, forward, -first_turn, rail_entities)
+            exit_curve_signal_points[curve_step == 1 and 1 or 3] = copy_location(forward.in_signal_location)
+            if curve_step == 1 and forward.alternative_in_signal_location then
+                exit_curve_signal_points[2] = copy_location(forward.alternative_in_signal_location)
+            end
         end
 
-        for _ = 1, TRUNK_STRAIGHTS do
+        for trunk_step = 1, TRUNK_STRAIGHTS do
             extend(surface, prepared_chunks, forward, 0, rail_entities)
+            exit_curve_signal_points[3 + trunk_step] = copy_location(forward.in_signal_location)
         end
 
         return {
@@ -280,6 +314,8 @@ local function build_lane_template(settings, heading, first_turn)
             entrance_signal = entrance_signal,
             exit_signal = copy_location(forward.in_signal_location),
             diagonal_in_signal_points = diagonal_in_signal_points,
+            entry_curve_ends = entry_curve_ends,
+            exit_curve_signal_points = exit_curve_signal_points,
         }
     end)
 
@@ -317,38 +353,71 @@ local function add_signal(add, name, location, x_offset, y_offset, diagnostic)
     end
 end
 
-local function append_lane(add, template, lane, x_offset, y_offset, debug_enabled)
+local function left_right_entry_location(template, lane, last_lane)
+    local distance_from_outer_lane = last_lane - lane
+    if distance_from_outer_lane == 0 then return template.diagonal_in_signal_points[1], "diagonal", 1 end
+
+    local last_curve = template.entry_curve_ends[CURVE_STEPS]
+    if distance_from_outer_lane == 1 then return last_curve.far_incoming, "entry curve", 1 end
+    if distance_from_outer_lane == 2 then return last_curve.near_outgoing, "entry curve", 2 end
+
+    local first_curve = template.entry_curve_ends[1]
+    if distance_from_outer_lane == 3 then return first_curve.far_incoming, "entry curve", 3 end
+    return first_curve.far_alternative_incoming or first_curve.near_outgoing, "entry curve", 4
+end
+
+local function left_right_exit_location(template, lane, last_lane)
+    local fan_offset = lane * 2 - last_lane
+    if fan_offset <= 0 then
+        local index = math.max(1, #template.diagonal_in_signal_points + fan_offset)
+        return template.diagonal_in_signal_points[index], "diagonal", index
+    end
+
+    local index = math.min(fan_offset, #template.exit_curve_signal_points)
+    return template.exit_curve_signal_points[index], "exit curve", index
+end
+
+local function append_lane(add, template, stacker_type, lane, last_lane, x_offset, y_offset, debug_enabled)
     for _, rail in ipairs(template.rails) do
         add(rail.name, rail.position.x + x_offset, rail.position.y + y_offset, {
             direction = rail.direction,
         })
     end
 
+    local entry_location = template.diagonal_in_signal_points[1]
+    local entry_source = "diagonal_in_signal_points"
     local entry_index = 1
+    if stacker_type == "Left-Right" then
+        entry_location, entry_source, entry_index = left_right_entry_location(template, lane, last_lane)
+    end
 
     add_signal(
         add,
         "rail-chain-signal",
-        template.diagonal_in_signal_points[entry_index],
+        entry_location,
         x_offset,
         y_offset,
         {
             enabled = debug_enabled,
             lane = lane,
             role = "lane entry",
-            source = "diagonal_in_signal_points",
+            source = entry_source,
             source_index = entry_index,
         }
     )
 
     local exit_index = #template.diagonal_in_signal_points
     local exit_location = template.diagonal_in_signal_points[exit_index]
+    local exit_source = "diagonal_in_signal_points"
+    if stacker_type == "Left-Right" then
+        exit_location, exit_source, exit_index = left_right_exit_location(template, lane, last_lane)
+    end
 
     add_signal(add, "rail-signal", exit_location, x_offset, y_offset, {
         enabled = debug_enabled,
         lane = lane,
         role = "lane exit",
-        source = "diagonal_in_signal_points",
+        source = exit_source,
         source_index = exit_index,
     })
 end
@@ -358,59 +427,67 @@ function DiagonalStacker.generate(settings)
     local add = make_unique_adder(builder)
     local stacker_type = normalize_stacker_type(settings.stacker_type)
 
-    local heading
-    local first_turn
-    local lane_step_x
-    local lane_step_y
+    local template_configuration
 
-    -- Lane signals use Factorio's incoming attachment for the rail end followed
-    -- while constructing the template, so the signalled train travels back
-    -- through that template. Map the option to that actual travel direction,
-    -- rather than to the opposite construction heading.
+    -- Signalled travel is opposite the direction used to construct each native
+    -- template. The two diagonal fans also have different handedness; rotating
+    -- one generic south/east template cannot produce both horizontal layouts.
     if stacker_type == "Left-Right" then
-        heading = defines.direction.south
-        first_turn = 1
-        lane_step_x = 0
-        lane_step_y = LANE_SPACING
+        template_configuration = {
+            heading = defines.direction.west,
+            first_turn = -1,
+            lane_step_x = LANE_SPACING,
+            lane_step_y = 0,
+        }
     else
-        heading = defines.direction.east
-        first_turn = 1
-        lane_step_x = LANE_SPACING
-        lane_step_y = 0
+        template_configuration = {
+            heading = defines.direction.east,
+            first_turn = 1,
+            lane_step_x = LANE_SPACING,
+            lane_step_y = 0,
+        }
     end
 
-    local template = build_lane_template(settings, heading, first_turn)
+    local template = build_lane_template(
+        settings,
+        template_configuration.heading,
+        template_configuration.first_turn
+    )
+    local last_lane = settings.stacker_lanes - 1
 
-    for lane = 0, settings.stacker_lanes - 1 do
+    for lane = 0, last_lane do
         append_lane(
             add,
             template,
+            stacker_type,
             lane,
-            lane * lane_step_x,
-            lane * lane_step_y,
+            last_lane,
+            lane * template_configuration.lane_step_x,
+            lane * template_configuration.lane_step_y,
             settings._diagonal_debug_enabled
         )
     end
 
-    add_signal(add, "rail-chain-signal", template.entrance_signal, 0, 0, {
+    local entrance_location = stacker_type == "Left-Right" and template.exit_signal or template.entrance_signal
+    add_signal(add, "rail-chain-signal", entrance_location, 0, 0, {
         enabled = settings._diagonal_debug_enabled,
         lane = 0,
         role = "entrance",
-        source = "entrance_signal",
+        source = stacker_type == "Left-Right" and "exit_signal" or "entrance_signal",
     })
 
-    local last_lane = settings.stacker_lanes - 1
+    local exit_location = stacker_type == "Left-Right" and template.entrance_signal or template.exit_signal
     add_signal(
         add,
         "rail-chain-signal",
-        template.exit_signal,
-        last_lane * lane_step_x,
-        last_lane * lane_step_y,
+        exit_location,
+        last_lane * template_configuration.lane_step_x,
+        last_lane * template_configuration.lane_step_y,
         {
             enabled = settings._diagonal_debug_enabled,
             lane = last_lane,
             role = "outer exit",
-            source = "exit_signal",
+            source = stacker_type == "Left-Right" and "entrance_signal" or "exit_signal",
         }
     )
 
