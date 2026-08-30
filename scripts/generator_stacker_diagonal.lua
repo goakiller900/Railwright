@@ -363,16 +363,20 @@ function DiagonalStacker.generate(settings)
     local lane_step_x
     local lane_step_y
 
+    -- Lane signals use Factorio's incoming attachment for the rail end followed
+    -- while constructing the template, so the signalled train travels back
+    -- through that template. Map the option to that actual travel direction,
+    -- rather than to the opposite construction heading.
     if stacker_type == "Left-Right" then
-        heading = defines.direction.east
-        first_turn = 1
-        lane_step_x = LANE_SPACING
-        lane_step_y = 0
-    else
         heading = defines.direction.south
         first_turn = 1
         lane_step_x = 0
         lane_step_y = LANE_SPACING
+    else
+        heading = defines.direction.east
+        first_turn = 1
+        lane_step_x = LANE_SPACING
+        lane_step_y = 0
     end
 
     local template = build_lane_template(settings, heading, first_turn)

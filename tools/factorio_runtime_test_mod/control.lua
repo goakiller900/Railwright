@@ -50,11 +50,11 @@ local function count_entities(entities, names)
     return count
 end
 
-local function diagonal_settings(direction, lanes, double_headed)
+local function diagonal_settings(direction, locomotives, wagons, lanes, double_headed)
     return {
         station_type = "stacker",
-        locomotives = 1,
-        cargo_wagons = 4,
+        locomotives = locomotives,
+        cargo_wagons = wagons,
         double_headed = not double_headed,
         stacker_double_headed = double_headed,
         include_train = true,
@@ -78,18 +78,26 @@ local ROLLING_STOCK = {
 }
 
 local DIAGONAL_CASES = {
-    { direction = "Left-Right", lanes = 1, double_headed = false, entities = 25, rails = 21 },
-    { direction = "Left-Right", lanes = 1, double_headed = true, entities = 29, rails = 25 },
-    { direction = "Left-Right", lanes = 3, double_headed = false },
-    { direction = "Left-Right", lanes = 3, double_headed = true },
-    { direction = "Right-Left", lanes = 1, double_headed = false, entities = 25, rails = 21 },
-    { direction = "Right-Left", lanes = 1, double_headed = true, entities = 29, rails = 25 },
-    { direction = "Right-Left", lanes = 3, double_headed = false },
-    { direction = "Right-Left", lanes = 3, double_headed = true },
+    { direction = "Left-Right", locomotives = 1, wagons = 1, lanes = 1, double_headed = false },
+    { direction = "Left-Right", locomotives = 1, wagons = 1, lanes = 1, double_headed = true },
+    { direction = "Left-Right", locomotives = 1, wagons = 4, lanes = 1, double_headed = false,
+        entities = 25, rails = 21 },
+    { direction = "Left-Right", locomotives = 1, wagons = 4, lanes = 1, double_headed = true,
+        entities = 29, rails = 25 },
+    { direction = "Left-Right", locomotives = 1, wagons = 4, lanes = 3, double_headed = false },
+    { direction = "Left-Right", locomotives = 1, wagons = 4, lanes = 3, double_headed = true },
+    { direction = "Right-Left", locomotives = 1, wagons = 1, lanes = 1, double_headed = false },
+    { direction = "Right-Left", locomotives = 1, wagons = 1, lanes = 1, double_headed = true },
+    { direction = "Right-Left", locomotives = 1, wagons = 4, lanes = 1, double_headed = false,
+        entities = 25, rails = 21 },
+    { direction = "Right-Left", locomotives = 1, wagons = 4, lanes = 1, double_headed = true,
+        entities = 29, rails = 25 },
+    { direction = "Right-Left", locomotives = 1, wagons = 4, lanes = 3, double_headed = false },
+    { direction = "Right-Left", locomotives = 1, wagons = 4, lanes = 3, double_headed = true },
 }
 
-local function create_parallel_test_surface(suffix)
-    local surface = game.create_surface("__railwright_parallel_test_" .. suffix, {
+local function create_geometry_test_surface(family, suffix)
+    local surface = game.create_surface("__railwright_" .. family .. "_test_" .. suffix, {
         seed = 0,
         default_enable_all_autoplace_controls = false,
         peaceful_mode = true,
@@ -146,7 +154,7 @@ local function forward_signal_location(rail, direction)
 end
 
 local function check_parallel_stacker(direction, locomotives, wagons, lanes, double_headed, case_index)
-    local surface = create_parallel_test_surface(direction .. "_" .. case_index)
+    local surface = create_geometry_test_surface("parallel", direction .. "_" .. case_index)
     local entities = Generator.create_entities({
         station_type = "stacker",
         locomotives = locomotives,
@@ -231,16 +239,165 @@ local function check_parallel_stackers()
     log("[Railwright automated runtime test] Parallel stackers PASS")
 end
 
+local function same_rail_location(descriptor, location)
+    return location
+        and descriptor.position.x == location.position.x
+        and descriptor.position.y == location.position.y
+        and descriptor.direction == location.direction
+end
+
+local function matching_signal_ends(descriptor, placed_rails, terminal_only)
+    local matches = { incoming = 0, outgoing = 0 }
+
+    for _, rail in pairs(placed_rails) do
+        for _, rail_direction in pairs(defines.rail_direction) do
+            local rail_end = rail.get_rail_end(rail_direction)
+            local terminal = not rail_end.move_natural()
+            if not terminal_only or terminal then
+                rail_end = rail.get_rail_end(rail_direction)
+                if same_rail_location(descriptor, rail_end.in_signal_location) then
+                    matches.incoming = matches.incoming + 1
+                end
+                if same_rail_location(descriptor, rail_end.out_signal_location) then
+                    matches.outgoing = matches.outgoing + 1
+                end
+            end
+        end
+    end
+
+    return matches
+end
+
+local function sort_lane_signals(signals, direction)
+    table.sort(signals, function(a, b)
+        if direction == "Left-Right" then
+            if a.position.y ~= b.position.y then return a.position.y < b.position.y end
+            return a.position.x < b.position.x
+        end
+        if a.position.x ~= b.position.x then return a.position.x < b.position.x end
+        return a.position.y < b.position.y
+    end)
+end
+
+local function check_diagonal_signal_geometry(entities, test_case, label)
+    local surface = create_geometry_test_surface("diagonal", tostring(test_case.runtime_index))
+    local placed_rails = {}
+    local normal_signals = {}
+    local chain_signals = {}
+
+    for _, descriptor in ipairs(entities) do
+        if RAIL_NAMES[descriptor.name] then
+            local rail = surface.create_entity({
+                name = descriptor.name,
+                position = descriptor.position,
+                direction = descriptor.direction,
+                force = game.forces.player,
+                create_build_effect_smoke = false,
+                raise_built = false,
+            })
+            if not rail then error(label .. " could not place a runtime-test rail") end
+            placed_rails[#placed_rails + 1] = rail
+        elseif descriptor.name == "rail-signal" then
+            normal_signals[#normal_signals + 1] = descriptor
+        elseif descriptor.name == "rail-chain-signal" then
+            chain_signals[#chain_signals + 1] = descriptor
+        end
+    end
+
+    local terminal_incoming = {}
+    local terminal_outgoing = {}
+    local lane_chains = {}
+
+    for _, signal in ipairs(normal_signals) do
+        local matches = matching_signal_ends(signal, placed_rails, false)
+        if matches.incoming == 0 then
+            error(label .. " normal signal is not attached to an incoming rail end")
+        end
+    end
+
+    for _, signal in ipairs(chain_signals) do
+        local all_matches = matching_signal_ends(signal, placed_rails, false)
+        if all_matches.incoming == 0 and all_matches.outgoing == 0 then
+            error(label .. " chain signal is not attached to a rail end")
+        end
+
+        local terminal_matches = matching_signal_ends(signal, placed_rails, true)
+        if terminal_matches.incoming > 0 then
+            terminal_incoming[#terminal_incoming + 1] = signal
+        elseif terminal_matches.outgoing > 0 then
+            terminal_outgoing[#terminal_outgoing + 1] = signal
+        else
+            if all_matches.incoming == 0 then
+                error(label .. " lane chain signal is not attached to an incoming rail end")
+            end
+            lane_chains[#lane_chains + 1] = signal
+        end
+    end
+
+    check(#terminal_incoming, 1, label .. " terminal entrance chain-signal count")
+    check(#terminal_outgoing, 1, label .. " terminal exit chain-signal count")
+    check(#lane_chains, test_case.lanes, label .. " lane chain-signal count")
+
+    local entrance = terminal_incoming[1]
+    local exit = terminal_outgoing[1]
+    if test_case.direction == "Left-Right" and exit.position.x <= entrance.position.x then
+        error(label .. " entrance and exit sides describe Right-Left travel")
+    elseif test_case.direction == "Right-Left" and exit.position.x >= entrance.position.x then
+        error(label .. " entrance and exit sides describe Left-Right travel")
+    end
+
+    sort_lane_signals(normal_signals, test_case.direction)
+    sort_lane_signals(lane_chains, test_case.direction)
+
+    for lane = 1, test_case.lanes do
+        local normal = normal_signals[lane]
+        local chain = lane_chains[lane]
+        check(normal.direction, chain.direction, label .. " lane signal direction " .. lane)
+        if test_case.direction == "Left-Right" and chain.position.x <= normal.position.x then
+            error(label .. " lane " .. lane .. " normal signal is not before its exit chain signal")
+        elseif test_case.direction == "Right-Left" and chain.position.x >= normal.position.x then
+            error(label .. " lane " .. lane .. " normal signal is not before its exit chain signal")
+        end
+
+        if lane > 1 then
+            local previous_normal = normal_signals[lane - 1]
+            local previous_chain = lane_chains[lane - 1]
+            if test_case.direction == "Left-Right" then
+                check(normal.position.x, previous_normal.position.x, label .. " normal-signal lane X")
+                check(normal.position.y - previous_normal.position.y, 4, label .. " normal-signal lane Y step")
+                check(chain.position.x, previous_chain.position.x, label .. " chain-signal lane X")
+                check(chain.position.y - previous_chain.position.y, 4, label .. " chain-signal lane Y step")
+            else
+                check(normal.position.x - previous_normal.position.x, 4, label .. " normal-signal lane X step")
+                check(normal.position.y, previous_normal.position.y, label .. " normal-signal lane Y")
+                check(chain.position.x - previous_chain.position.x, 4, label .. " chain-signal lane X step")
+                check(chain.position.y, previous_chain.position.y, label .. " chain-signal lane Y")
+            end
+        end
+    end
+
+    game.delete_surface(surface)
+end
+
 local function check_diagonal_stacker(test_case)
     -- The native geometry surface cannot be deleted and recreated in one tick,
     -- so the runtime suite schedules one generation case per tick.
     local entities = Generator.create_entities(diagonal_settings(
         test_case.direction,
+        test_case.locomotives,
+        test_case.wagons,
         test_case.lanes,
         test_case.double_headed
     ))
     local heading = test_case.double_headed and "double-headed" or "single-headed"
-    local label = string.format("%s %s %d-lane diagonal", test_case.direction, heading, test_case.lanes)
+    local label = string.format(
+        "%s %s %d-%d %d-lane diagonal",
+        test_case.direction,
+        heading,
+        test_case.locomotives,
+        test_case.wagons,
+        test_case.lanes
+    )
     local rail_count = count_entities(entities, RAIL_NAMES)
 
     check(count_entities(entities, ROLLING_STOCK), 0, label .. " rolling-stock count")
@@ -252,11 +409,21 @@ local function check_diagonal_stacker(test_case)
     if test_case.entities then
         check(#entities, test_case.entities, label .. " entity count")
         check(rail_count, test_case.rails, label .. " rail count")
-    elseif not test_case.double_headed then
-        storage.diagonal_three_single_rails[test_case.direction] = rail_count
-    elseif rail_count <= (storage.diagonal_three_single_rails[test_case.direction] or math.huge) then
+    end
+
+    local sizing_key = table.concat({
+        test_case.direction,
+        test_case.locomotives,
+        test_case.wagons,
+        test_case.lanes,
+    }, ":")
+    if not test_case.double_headed then
+        storage.diagonal_single_rails[sizing_key] = rail_count
+    elseif rail_count <= (storage.diagonal_single_rails[sizing_key] or math.huge) then
         error(label .. " did not lengthen its holding rails")
     end
+
+    check_diagonal_signal_geometry(entities, test_case, label)
 end
 
 local function signal_summary(marker)
@@ -328,13 +495,14 @@ script.on_init(function()
         marker = manual_marker.unit_number,
         stop = manual_stop.unit_number,
     }
-    storage.diagonal_three_single_rails = {}
+    storage.diagonal_single_rails = {}
     check_parallel_stackers()
 end)
 
 script.on_event(defines.events.on_tick, function(event)
     local diagonal_case = DIAGONAL_CASES[event.tick]
     if diagonal_case then
+        diagonal_case.runtime_index = event.tick
         check_diagonal_stacker(diagonal_case)
         if event.tick == #DIAGONAL_CASES then
             log("[Railwright automated runtime test] Diagonal stackers PASS")
