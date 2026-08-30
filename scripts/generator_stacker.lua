@@ -11,13 +11,28 @@ local Stacker = {}
 -- cannot be mirrored reliably by only flipping entity coordinates/directions.
 
 local LANE_SPACING = 4
-local REFERENCE_TOTAL_CARS = 6
+local REFERENCE_TOTAL_CARS = 5
 local REFERENCE_STRAIGHT_RAILS = 16
 local STRAIGHT_RAILS_PER_EXTRA_CAR = 4
-local MINIMUM_STRAIGHT_RAILS = 8
+local MINIMUM_STRAIGHT_RAILS = 4
+local EXIT_SIGNAL_FORWARD_STEP = { x = 2, y = 1 }
 
 local function normalize_stacker_type(stacker_type)
     return stacker_type == "Right-Left" and "Right-Left" or "Left-Right"
+end
+
+local function orient_parallel_offset(stacker_type, offset)
+    local x = offset.x
+    if normalize_stacker_type(stacker_type) == "Right-Left" then x = -x end
+    return x, offset.y
+end
+
+local function add_exit_signal(add, stacker_type, x, y, direction)
+    -- The old location is the first exit curve's valid attachment. Advance to
+    -- the next connected curve's attachment so a waiting train clears its lane;
+    -- mirror the forward step for the dedicated opposite-direction layout.
+    local x_offset, y_offset = orient_parallel_offset(stacker_type, EXIT_SIGNAL_FORWARD_STEP)
+    add("rail-signal", x + x_offset, y + y_offset, { direction = direction })
 end
 
 local function make_unique_adder(builder)
@@ -123,6 +138,12 @@ end
 
 local function straight_rail_count(settings)
     local total_cars = Common.total_cars(settings)
+
+    -- The manual reference is a 1-locomotive/4-wagon train: five total cars on
+    -- sixteen two-tile straight rails. Each additional seven-tile car needs four
+    -- more rails on the native two-tile grid. Four rails are the smallest run
+    -- that holds the seven-tile centre spacing of a two-car train; the old
+    -- eight-rail minimum incorrectly made that layout large enough for three.
     local count = REFERENCE_STRAIGHT_RAILS
         + (total_cars - REFERENCE_TOTAL_CARS) * STRAIGHT_RAILS_PER_EXTRA_CAR
 
@@ -155,9 +176,13 @@ local function build_left_right_native_parallel(settings)
         add("rail-chain-signal", -1.5, lane_y - 1.5, {
             direction = defines.direction.east,
         })
-        add("rail-signal", exit_curve_x + 2.5, lane_y - 0.5, {
-            direction = defines.direction.eastsoutheast,
-        })
+        add_exit_signal(
+            add,
+            settings.stacker_type,
+            exit_curve_x + 2.5,
+            lane_y - 0.5,
+            defines.direction.eastsoutheast
+        )
     end
 
     add("rail-chain-signal", output_x + 1.5, last_lane_y + 12.5, {
@@ -190,9 +215,13 @@ local function build_right_left_native_parallel(settings)
         add_horizontal_rails(add, lane_y, rail_count)
         add_right_left_right_transition(add, lane_y, exit_curve_x)
 
-        add("rail-signal", -4.5, lane_y + 1.5, {
-            direction = defines.direction.westsouthwest,
-        })
+        add_exit_signal(
+            add,
+            settings.stacker_type,
+            -4.5,
+            lane_y + 1.5,
+            defines.direction.westsouthwest
+        )
         add("rail-chain-signal", exit_curve_x - 1.5, lane_y + 1.5, {
             direction = defines.direction.west,
         })

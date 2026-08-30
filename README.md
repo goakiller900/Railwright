@@ -11,9 +11,9 @@ Railwright is an in-game train station blueprint generator for Factorio 2.1.
 
 The project is a modern successor inspired by BurnySc2's original **Train Station Blueprint Creator** (`BurnysTSBC`) and the later web-based Train Station Blueprint Creator. Railwright is a new implementation designed around the current Factorio runtime API and the prototypes that are actually available in the player's mod set.
 
-## Current status — 0.3.8
+## Current status — 0.3.11
 
-Railwright 0.3.8 adds experimental, opt-in dynamic train-stop names for generated item and fluid stations while keeping the existing station and stacker layouts unchanged. Native Factorio 2.1 diagonal stackers remain available as an experimental feature.
+Railwright 0.3.11 corrects parallel stacker holding-track lengths and adds explicit double-headed sizing for parallel and diagonal stackers. Native Factorio 2.1 diagonal stackers remain available as an experimental feature, and experimental opt-in dynamic train-stop names remain available for item and fluid stations.
 
 When **Deadlock's Stacking Beltboxes & Compact Loaders Continued** is installed, item stations can use compatible compact loaders instead of inserters. Loader stations use direct staggered splitter chains appropriate for 1x1 loaders. This integration is optional; ordinary inserter stations remain the default.
 
@@ -35,6 +35,7 @@ When **Deadlock's Stacking Beltboxes & Compact Loaders Continued** is installed,
 - Left or right pump side for fluid stations.
 - Configurable storage-tank columns.
 - Configurable stacker lane count and direction.
+- Single-headed and double-headed sizing for parallel and diagonal stackers.
 
 ### Item station settings
 
@@ -89,7 +90,7 @@ Railwright is still under active development and the generator has many possible
 - The automatic dynamic train-limit behavior is available, but the web generator's advanced custom arithmetic formula controls are not exposed yet.
 - Unusual modded prototypes may still need additional capability detection even when they appear in a runtime picker.
 - Broad testing across overhaul mod packs is ongoing.
-- The Railwright station-name combinator intentionally uses vanilla decider-combinator artwork in 0.3.8.
+- The Railwright station-name combinator intentionally uses vanilla decider-combinator artwork.
 - Dynamic station naming remains experimental; its per-station checkbox is hidden until enabled through the per-player mod settings.
 
 ## Installation for development
@@ -103,7 +104,7 @@ railwright
 or with the version suffix:
 
 ```text
-railwright_0.3.8
+railwright_0.3.11
 ```
 
 Start Factorio 2.1 and enable **Railwright** in the mod manager.
@@ -155,7 +156,7 @@ python tools/validate_png.py thumbnail.png graphics/railwright-shortcut-x56.png
 To preview the GitHub release notes generated from a changelog entry:
 
 ```text
-python tools/release_notes.py 0.3.8
+python tools/release_notes.py 0.3.11
 ```
 
 ## Usage
