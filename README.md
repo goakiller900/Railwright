@@ -156,7 +156,7 @@ python tools/validate_png.py thumbnail.png graphics/railwright-shortcut-x56.png
 To preview the GitHub release notes generated from a changelog entry:
 
 ```text
-python tools/release_notes.py 0.3.11
+python tools/release_notes.py 0.3.12
 ```
 
 ## Usage

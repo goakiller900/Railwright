@@ -26,15 +26,23 @@ function PrototypeUtils.locomotive_fuel_categories()
     return next(categories) and categories or nil
 end
 
+local function item_matches_fuel_categories(item, accepted_categories)
+    local item_categories = item and item.fuel_categories
+    if not item_categories then return false end
+
+    for _, category in pairs(item_categories) do
+        if accepted_categories[category] then return true end
+    end
+    return false
+end
+
 function PrototypeUtils.is_locomotive_fuel(name)
     local valid_name = PrototypeUtils.item_name_or_nil(name)
     if not valid_name then return false end
 
     local categories = PrototypeUtils.locomotive_fuel_categories()
     local item = item_prototypes()[valid_name]
-    return categories ~= nil
-        and type(item.fuel_category) == "string"
-        and categories[item.fuel_category] == true
+    return categories ~= nil and item_matches_fuel_categories(item, categories)
 end
 
 function PrototypeUtils.has_compatible_locomotive_fuel()
@@ -43,7 +51,7 @@ function PrototypeUtils.has_compatible_locomotive_fuel()
     if not items or not categories then return false end
 
     for _, item in pairs(items) do
-        if type(item.fuel_category) == "string" and categories[item.fuel_category] then return true end
+        if item_matches_fuel_categories(item, categories) then return true end
     end
     return false
 end

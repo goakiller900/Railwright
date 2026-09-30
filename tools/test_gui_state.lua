@@ -58,14 +58,23 @@ prototypes = {
         ["curved-rail-b"] = { type = "curved-rail-b" },
     },
     item = {
-        ["solid-fuel"] = { type = "item", fuel_category = "chemical" },
-        coal = { type = "item", fuel_category = "chemical" },
+        ["solid-fuel"] = { type = "item", fuel_categories = { "chemical" } },
+        coal = { type = "item", fuel_categories = { "chemical" } },
         ["iron-plate"] = { type = "item" },
-        ["nuclear-fuel-cell"] = { type = "item", fuel_category = "nuclear" },
+        ["nuclear-fuel-cell"] = { type = "item", fuel_categories = { "nuclear" } },
         ["modded-item"] = { type = "item" },
-        ["modded-fuel"] = { type = "item", fuel_category = "chemical" },
+        ["modded-fuel"] = { type = "item", fuel_categories = { "chemical" } },
     },
 }
+
+-- Factorio raises on removed runtime API properties rather than returning nil.
+for _, item in pairs(prototypes.item) do
+    setmetatable(item, { __index = function(_, key)
+        if key == "fuel_category" then
+            error("LuaItemPrototype doesn't contain key fuel_category")
+        end
+    end })
+end
 
 storage = {
     players = {
@@ -590,6 +599,22 @@ for _, fuel_name in ipairs({ "iron-plate", "nuclear-fuel-cell" }) do
     equal(fuel_ok, false, fuel_name .. " is rejected as locomotive fuel")
     equal(type(fuel_message), "string", fuel_name .. " fuel rejection is readable")
 end
+
+local PrototypeUtils = require("scripts.prototype_utils")
+local modded_categories = prototypes.item["modded-fuel"].fuel_categories
+prototypes.item["modded-fuel"].fuel_categories = { "nuclear", "chemical" }
+equal(PrototypeUtils.is_locomotive_fuel("modded-fuel"), true, "a later fuel category can match")
+local original_items = prototypes.item
+prototypes.item = { ["modded-fuel"] = original_items["modded-fuel"] }
+equal(PrototypeUtils.has_compatible_locomotive_fuel(), true, "compatible-fuel discovery checks all categories")
+prototypes.item["modded-fuel"].fuel_categories = {}
+equal(PrototypeUtils.is_locomotive_fuel("modded-fuel"), false, "empty fuel categories are rejected")
+equal(PrototypeUtils.has_compatible_locomotive_fuel(), false, "empty categories provide no compatible fuel")
+prototypes.item["modded-fuel"].fuel_categories = nil
+equal(PrototypeUtils.is_locomotive_fuel("modded-fuel"), false, "missing fuel categories are rejected")
+equal(PrototypeUtils.has_compatible_locomotive_fuel(), false, "non-fuel items provide no compatible fuel")
+prototypes.item = original_items
+prototypes.item["modded-fuel"].fuel_categories = modded_categories
 
 local unselected_fuel_settings = State.defaults()
 unselected_fuel_settings.refill_fuel = nil

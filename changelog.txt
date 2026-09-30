@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.12
+Date: 30. 09. 2026
+  Bugfixes:
+    - Fixed crashes when loading existing saves or creating players in Factorio 2.1.20 by using the current item fuel-categories API.
+    - Locomotive refuelling now checks every category of fuels that support multiple fuel categories.
+  Compatibility:
+    - Existing valid fuel selections are preserved; incompatible or removed fuels continue to be sanitized automatically.
+---------------------------------------------------------------------------------------------------
 Version: 0.3.11
 Date: 29. 08. 2026
   Bugfixes:
